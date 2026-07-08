@@ -1,0 +1,26 @@
+[project]
+name = "photo-rag-assistant"
+version = "0.1.0"
+description = "Agentic RAG assistant over photography gear manuals + technique guides — evaluated and observable."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "psycopg[binary]>=3.2",       # Postgres driver (pgvector via Supabase)
+    "pgvector>=0.3",              # register the vector type with psycopg
+    "sentence-transformers>=3.3", # local embeddings (BAAI/bge-small-en-v1.5)
+    "anthropic>=0.39",           # generation (Claude)
+    "pypdf>=5.1",                # load PDF manuals
+    "beautifulsoup4>=4.12",      # parse technique HTML/articles
+    "tiktoken>=0.8",             # token-aware chunking
+    # added in later lessons:
+    # "langgraph"  (L04)  "ragas" "deepeval"  (L06)  "langfuse"  (L08)
+]
+
+[dependency-groups]
+dev = ["ruff>=0.7", "pytest>=8.3"]
+
+[tool.ruff]
+line-length = 100
