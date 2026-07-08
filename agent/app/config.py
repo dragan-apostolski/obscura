@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""       # generation, from L03
 
     embedding_model: str = "BAAI/bge-small-en-v1.5"   # local, free, 384-dim
+    reranker_model: str = "BAAI/bge-reranker-base"    # local cross-encoder (L03)
     generation_model: str = "claude-sonnet-5"
     embedding_dim: int = 384
 
