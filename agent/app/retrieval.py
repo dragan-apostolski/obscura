@@ -34,10 +34,23 @@ def _or_tsquery(query: str) -> str:
     return " | ".join(re.findall(r"\w+", query.lower()))
 
 
-def hybrid_retrieve(query: str, k: int = 20) -> list[dict]:
-    """Vector + keyword search, merged with Reciprocal Rank Fusion (RRF)."""
+def hybrid_retrieve(query: str, k: int = 20, product: str | None = None,
+                    doc_type: str | None = None) -> list[dict]:
+    """Vector + keyword search, merged with Reciprocal Rank Fusion (RRF).
+
+    `product` / `doc_type` restrict BOTH arms to a metadata slice, so filtered-out
+    chunks never enter the candidate pool (L05: no wrong-camera leakage by construction).
+    """
     embedding = embed_query(query)
-    sql = """
+    conds, cond_params = [], []
+    if product is not None:
+        conds.append("product = %s")
+        cond_params.append(product)
+    if doc_type is not None:
+        conds.append("doc_type = %s")
+        cond_params.append(doc_type)
+    meta_filter = (" and " + " and ".join(conds)) if conds else ""
+    sql = f"""
         with q as (
             select to_tsquery('english', %s) as tsq   -- match any word (OR); ranked by ts_rank_cd
         ),
@@ -45,6 +58,7 @@ def hybrid_retrieve(query: str, k: int = 20) -> list[dict]:
             select id, content, source,
                    row_number() over (order by embedding <=> %s::vector) as rank
             from chunks
+            where true{meta_filter}
             order by embedding <=> %s::vector
             limit %s
         ),
@@ -52,7 +66,7 @@ def hybrid_retrieve(query: str, k: int = 20) -> list[dict]:
             select id, content, source,
                    row_number() over (order by ts_rank_cd(content_tsv, (select tsq from q)) desc) as rank
             from chunks
-            where content_tsv @@ (select tsq from q)
+            where content_tsv @@ (select tsq from q){meta_filter}
             limit %s
         )
         select coalesce(vec.content, kw.content) as content,
@@ -64,6 +78,7 @@ def hybrid_retrieve(query: str, k: int = 20) -> list[dict]:
         order by score desc
         limit %s
     """
-    params = (_or_tsquery(query), embedding, embedding, POOL, POOL, RRF_K, RRF_K, k)
+    params = (_or_tsquery(query), embedding, *cond_params, embedding, POOL,
+              *cond_params, POOL, RRF_K, RRF_K, k)
     rows = _query_rows(sql, params)
     return [{"content": c, "source": s, "score": score} for c, s, score in rows]

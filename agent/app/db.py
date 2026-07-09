@@ -15,14 +15,19 @@ def get_conn():
         yield conn
 
 
-def insert_chunks(rows: list[dict]) -> int:
-    """Bulk-insert chunk rows: {source, content, token_count, embedding}. Returns count."""
-    if not rows:
-        return 0
+def insert_chunks(source: str, rows: list[dict]) -> int:
+    """Replace all chunks of a source: delete existing rows, bulk-insert the new ones.
+
+    Rows: {source, content, token_count, embedding, doc_type, brand, product}.
+    Delete-first makes ingest re-runnable without duplicating chunks — including
+    when a source now produces zero chunks.
+    """
     with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("delete from chunks where source = %s", (source,))
         cur.executemany(
-            "insert into chunks (source, content, token_count, embedding) "
-            "values (%(source)s, %(content)s, %(token_count)s, %(embedding)s)",
+            "insert into chunks (source, content, token_count, embedding, doc_type, brand, product) "
+            "values (%(source)s, %(content)s, %(token_count)s, %(embedding)s, "
+            "%(doc_type)s, %(brand)s, %(product)s)",
             rows,
         )
         conn.commit()

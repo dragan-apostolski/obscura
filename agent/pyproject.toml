@@ -18,6 +18,8 @@ dependencies = [
     # added in later lessons:
     # "langgraph"  (L04)  "ragas" "deepeval"  (L06)  "langfuse"  (L08)
     "langgraph>=1.2.8",
+    "langchain>=1.3.12",
+    "langchain-anthropic>=1.4.8",
 ]
 
 [dependency-groups]
