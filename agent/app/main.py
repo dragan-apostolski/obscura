@@ -24,6 +24,6 @@ def search(req: SearchRequest):
 
 @app.post("/ask")
 def ask(req: SearchRequest):
-    """L03: retrieve → rerank → generate a grounded answer. Becomes the agent in L04."""
-    from app.generate import answer
-    return {"query": req.query, **answer(req.query, req.k)}
+    """L04: the LangGraph agent — retrieve → grade → answer, with a rewrite loop."""
+    from app.agent import ask as agent_ask
+    return {"query": req.query, **agent_ask(req.query)}
