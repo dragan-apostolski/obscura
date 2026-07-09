@@ -24,5 +24,6 @@ def search(req: SearchRequest):
 
 @app.post("/ask")
 def ask(req: SearchRequest):
-    """L03+: retrieve → generate a grounded answer. Becomes the agent in L04."""
-    return {"detail": "Not implemented yet — built in Lesson 03."}
+    """L03: retrieve → rerank → generate a grounded answer. Becomes the agent in L04."""
+    from app.generate import answer
+    return {"query": req.query, **answer(req.query, req.k)}
