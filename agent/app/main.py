@@ -24,13 +24,13 @@ def search(req: SearchRequest):
 
 @app.post("/ask")
 def ask(req: SearchRequest):
-    """L04: the LangGraph agent — retrieve → grade → answer, with a rewrite loop."""
+    """The main agent — camera-store ReAct: catalog, availability, manuals, technique."""
     from app.agent import ask as agent_ask
     return {"query": req.query, **agent_ask(req.query)}
 
 
 @app.post("/store/ask")
 def store_ask(req: SearchRequest):
-    """L05: the camera-store ReAct agent — catalog, availability, manuals, technique."""
-    from app.store_agent import ask_store
-    return {"query": req.query, **ask_store(req.query)}
+    """Backward-compat alias for /ask (the store agent is now the main agent)."""
+    from app.agent import ask as agent_ask
+    return {"query": req.query, **agent_ask(req.query)}

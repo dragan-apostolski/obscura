@@ -1,103 +1,94 @@
-"""LangGraph agent (L04): retrieve → grade → answer, with a query-rewrite loop.
+"""The main agent — a camera-store ReAct agent (L05, now the shipped agent).
 
-Same building blocks as the L03 pipeline (hybrid_retrieve, rerank, grounded prompt),
-arranged as a StateGraph with one decision point: if retrieval looks weak,
-rewrite the query and retry once.
+Unlike the deprecated manual_rag graph (hand-wired routing), here the model owns the
+control flow: it picks tools, reads results, and loops until it can answer. Our leverage
+points are the tool docstrings and this system prompt.
 """
-from anthropic import Anthropic
-from langgraph.graph import StateGraph, START, END
-from typing_extensions import TypedDict
+import re
+
+from langchain.agents import create_agent
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import ToolMessage
 
 from app.config import settings
-from app.retrieval import hybrid_retrieve
-from app.rerank import rerank
+from app.tools import TOOLS
 
-_client = Anthropic(api_key=settings.anthropic_api_key)
+SYSTEM_PROMPT = """You are the shop assistant of an online camera store. We sell camera
+bodies from Canon, Sony, Nikon, Panasonic, OM System and Fujifilm. At this moment we are only selling camera bodies (new, not used), 
+and we are not selling lenses or accessories. 
 
-TOP_N = 5
-GRADE_THRESHOLD = 0.2  # top rerank score below this = retrieval found nothing relevant
-MAX_ATTEMPTS = 1
+Routing:
+- Each tool's description says when to use it. When unsure of a product's
+  slug, resolve it with search_products before calling other tools.
+- If a request doesn't clearly map to one product (e.g. "how do I change
+  white balance?" without naming a camera), ask which camera the user
+  means before calling product-specific tools.
+- For comparisons, fetch each product's info separately, then compare.
 
-
-class AgentState(TypedDict):
-    query: str           # current search query — the rewrite node may replace it
-    original_query: str  # what the user actually asked; the answer node uses this
-    chunks: list[dict]   # retrieved + reranked: {content, source, score}
-    answer: str
-    sources: list[str]
-    attempts: int        # rewrites so far; caps the retry loop at 1
-
-
-def retrieve_node(state: AgentState) -> dict:
-    chunks = rerank(state["query"], hybrid_retrieve(state["query"]), top_n=TOP_N)
-    return {"chunks": chunks}
+Answers:
+- Base product facts (prices, stock, specs) and manual/technique answers
+  on tool results; if the tools don't have the answer, say you don't know.
+- When you used a manual, mention the source.
+- Prices are in EUR. Be concise and helpful, like a knowledgeable store
+  clerk. Politely decline questions unrelated to the store or photography."""
 
 
-def grade(state: AgentState) -> str:
-    """Conditional edge: decide where to go after retrieval."""
-    top = state["chunks"][0]["score"] if state["chunks"] else 0.0
-    if top >= GRADE_THRESHOLD or state["attempts"] >= MAX_ATTEMPTS:
-        return "answer"
-    return "rewrite"
-
-
-def rewrite_node(state: AgentState) -> dict:
-    """Rephrase the query for search. Only runs when grade says retrieval was weak."""
-    resp = _client.messages.create(
-        model=settings.generation_model,
-        max_tokens=100,
-        thinking={"type": "disabled"},
-        system="Rewrite the user's photography question as a clear search query. "
-               "Reply with the rewritten query only.",
-        messages=[{"role": "user", "content": state["query"]}],
-    )
-    new_query = next((b.text for b in resp.content if b.type == "text"), state["query"])
-    return {"query": new_query.strip(), "attempts": state["attempts"] + 1}
-
-
-SYSTEM = """You are a photography assistant. Answer the user's question using ONLY the \
-context below. If the answer is not in the context, say you don't know — do not use outside \
-knowledge or guess. Be concise. When a detail is camera-specific, name the camera."""
-
-
-def _format_context(chunks: list[dict]) -> str:
-    """Number each chunk and label it with its source file, so the model can ground answers."""
-    return "\n\n".join(
-        f"[{i}] (source: {c['source']})\n{c['content']}" for i, c in enumerate(chunks, 1)
-    )
-
-
-def answer_node(state: AgentState) -> dict:
-    if not state["chunks"]:
-        return {"answer": "I don't know — nothing relevant was found.", "sources": []}
-
-    prompt = f"Context:\n{_format_context(state['chunks'])}\n\nQuestion: {state['original_query']}"
-    resp = _client.messages.create(
-        model=settings.generation_model,
-        max_tokens=1024,
-        thinking={"type": "disabled"},  # grounded extract-and-cite; no reasoning needed
-        system=SYSTEM,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = next((b.text for b in resp.content if b.type == "text"), "")
-    sources = list(dict.fromkeys(c["source"] for c in state["chunks"]))  # dedup, keep order
-    return {"answer": text, "sources": sources}
-
-
-graph = (
-    StateGraph(AgentState)
-    .add_node("retrieve", retrieve_node)
-    .add_node("rewrite", rewrite_node)
-    .add_node("answer", answer_node)
-    .add_edge(START, "retrieve")
-    .add_conditional_edges("retrieve", grade, ["answer", "rewrite"])
-    .add_edge("rewrite", "retrieve")
-    .add_edge("answer", END)
-    .compile()
+_model = ChatAnthropic(
+    model=settings.generation_model,
+    api_key=settings.anthropic_api_key,
+    max_tokens=4096,
+    timeout=settings.request_timeout,  # without this the SDK timeout is disabled → infinite hangs
+    max_retries=2,
 )
+
+agent = create_agent(model=_model, tools=TOOLS, system_prompt=SYSTEM_PROMPT)
+
+
+def _sources(messages: list) -> list[str]:
+    """Collect manual/guide sources cited in tool results, order kept."""
+    seen: list[str] = []
+    for m in messages:
+        if isinstance(m, ToolMessage):
+            for src in re.findall(r"\[source: ([^\]]+)\]", str(m.content)):
+                if src not in seen:
+                    seen.append(src)
+    return seen
+
+
+def _result(messages: list) -> dict:
+    """Shape agent messages into the eval contract: {answer, sources, contexts, tool_calls}."""
+    contexts = [str(m.content) for m in messages if isinstance(m, ToolMessage)]
+    tool_calls = [
+        {"name": tc["name"], "args": tc["args"]}
+        for m in messages
+        for tc in getattr(m, "tool_calls", None) or []
+    ]
+    return {
+        "answer": messages[-1].text,
+        "sources": _sources(messages),
+        "contexts": contexts,
+        "tool_calls": tool_calls,
+    }
 
 
 def ask(query: str) -> dict:
-    """Run the agent and return {answer, sources}."""
-    final = graph.invoke({"query": query, "original_query": query, "attempts": 0})
-    return {"answer": final["answer"], "sources": final["sources"]}
+    """Run the agent on one question."""
+    result = agent.invoke({"messages": [{"role": "user", "content": query}]})
+    return _result(result["messages"])
+
+
+async def ask_batch(queries: list[str], max_concurrency: int = 5) -> list[dict]:
+    """Run many questions concurrently (IO-bound on the model API). Order preserved;
+    a failed/timed-out run yields an error dict instead of aborting the batch."""
+    inputs = [{"messages": [{"role": "user", "content": q}]} for q in queries]
+    results = await agent.abatch(
+        inputs, config={"max_concurrency": max_concurrency}, return_exceptions=True
+    )
+    out = []
+    for r in results:
+        if isinstance(r, Exception):
+            out.append({"answer": f"(agent error: {type(r).__name__}: {r})",
+                        "sources": [], "contexts": [], "tool_calls": []})
+        else:
+            out.append(_result(r["messages"]))
+    return out
