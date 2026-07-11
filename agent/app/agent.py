@@ -4,6 +4,7 @@ Unlike the deprecated manual_rag graph (hand-wired routing), here the model owns
 control flow: it picks tools, reads results, and loops until it can answer. Our leverage
 points are the tool docstrings and this system prompt.
 """
+import asyncio
 import re
 
 from langchain.agents import create_agent
@@ -55,9 +56,24 @@ def _sources(messages: list) -> list[str]:
     return seen
 
 
+# Tools whose output is evidence an answer should be grounded in. search_products is
+# pure routing/browse (many rows, never the answer content itself) and is excluded;
+# get_product_info returns the actual facts (price, specs) an answer should cite, so
+# it counts as retrieval alongside the manual/technique search tools.
+RETRIEVAL_TOOLS = {"search_manual", "explain_technique", "get_product_info"}
+
+
 def _result(messages: list) -> dict:
-    """Shape agent messages into the eval contract: {answer, sources, contexts, tool_calls}."""
-    contexts = [str(m.content) for m in messages if isinstance(m, ToolMessage)]
+    """Shape agent messages into the eval contract:
+    {answer, sources, contexts, retrieval_contexts, tool_calls}.
+
+    contexts = every tool's output, including search_products (used for behavioral
+    asserts, which need the full trace). retrieval_contexts = only RETRIEVAL_TOOLS
+    output — excludes search_products — used for Ragas.
+    """
+    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    contexts = [str(m.content) for m in tool_messages]
+    retrieval_contexts = [str(m.content) for m in tool_messages if m.name in RETRIEVAL_TOOLS]
     tool_calls = [
         {"name": tc["name"], "args": tc["args"]}
         for m in messages
@@ -67,6 +83,7 @@ def _result(messages: list) -> dict:
         "answer": messages[-1].text,
         "sources": _sources(messages),
         "contexts": contexts,
+        "retrieval_contexts": retrieval_contexts,
         "tool_calls": tool_calls,
     }
 
@@ -77,18 +94,33 @@ def ask(query: str) -> dict:
     return _result(result["messages"])
 
 
-async def ask_batch(queries: list[str], max_concurrency: int = 5) -> list[dict]:
-    """Run many questions concurrently (IO-bound on the model API). Order preserved;
-    a failed/timed-out run yields an error dict instead of aborting the batch."""
-    inputs = [{"messages": [{"role": "user", "content": q}]} for q in queries]
-    results = await agent.abatch(
-        inputs, config={"max_concurrency": max_concurrency}, return_exceptions=True
-    )
-    out = []
-    for r in results:
-        if isinstance(r, Exception):
-            out.append({"answer": f"(agent error: {type(r).__name__}: {r})",
-                        "sources": [], "contexts": [], "tool_calls": []})
-        else:
-            out.append(_result(r["messages"]))
-    return out
+async def ask_batch(queries: list[str], max_concurrency: int = 3,
+                    per_item_timeout: float = 150.0) -> list[dict]:
+    """Run questions concurrently (IO-bound on the model API), bounded by a semaphore.
+    Order preserved; a failed/timed-out run yields an error dict instead of aborting.
+    Concurrency is kept low on purpose — too many parallel calls trip the API rate
+    limit and the retry backoff ends up slower than sequential. per_item_timeout is a
+    hard cap so one hung question (e.g. a stuck tool/DB call the API timeout misses)
+    can't wedge the whole batch. Prints per-item progress for visibility."""
+    sem = asyncio.Semaphore(max_concurrency)
+    results: list[dict] = [None] * len(queries)  # type: ignore[list-item]
+    done = 0
+
+    async def run_one(i: int, q: str):
+        nonlocal done
+        async with sem:
+            try:
+                r = await asyncio.wait_for(
+                    agent.ainvoke({"messages": [{"role": "user", "content": q}]}),
+                    timeout=per_item_timeout,
+                )
+                results[i] = _result(r["messages"])
+            except Exception as e:
+                results[i] = {"answer": f"(agent error: {type(e).__name__}: {e})",
+                              "sources": [], "contexts": [], "retrieval_contexts": [],
+                              "tool_calls": []}
+        done += 1
+        print(f"  [{done}/{len(queries)}] {q[:50]}", flush=True)
+
+    await asyncio.gather(*(run_one(i, q) for i, q in enumerate(queries)))
+    return results

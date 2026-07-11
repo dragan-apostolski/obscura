@@ -111,8 +111,10 @@ def ask(query: str) -> dict:
     """
     warnings.warn("app.manual_rag_agent is deprecated; use app.agent.", DeprecationWarning, stacklevel=2)
     final = graph.invoke({"query": query, "original_query": query, "attempts": 0})
+    contexts = [c["content"] for c in final["chunks"]]
     return {
         "answer": final["answer"],
         "sources": final["sources"],
-        "contexts": [c["content"] for c in final["chunks"]],
+        "contexts": contexts,
+        "retrieval_contexts": contexts,  # this agent has no routing tools — all context is retrieval
     }

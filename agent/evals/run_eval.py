@@ -45,7 +45,12 @@ EVALS_DIR = Path(__file__).parent
 GOLDEN = EVALS_DIR / "golden.jsonl"
 RUNS_JSON = EVALS_DIR / "l06-runs.json"
 REPORT = EVALS_DIR / "l06-ragas-baseline.md"
-AGENT_CONCURRENCY = 5   # parallel store-agent runs (bounded by Supabase conns + API rate limits)
+AGENT_CONCURRENCY = 3   # parallel store-agent runs; higher trips the Anthropic rate limit
+
+# answer_relevancy hard-zeros hedged answers — but hedging is the correct behavior for
+# sparse-data, so scoring it there is misleading. Skipped metrics show as "—" and are
+# excluded from averages.
+SKIP_METRICS_BY_CATEGORY = {"sparse-data": {"answer_relevancy"}}
 
 REFUSAL_MARKERS = [
     "don't know", "do not know", "can't help", "cannot help", "not able to help",
@@ -87,6 +92,7 @@ def run_agent(agent: str, question: str) -> dict:
     else:
         from app.agent import ask
         out = ask(question)
+    out.setdefault("retrieval_contexts", out.get("contexts", []))
     return out
 
 
@@ -194,15 +200,19 @@ def build_metrics():
     }
 
 
-async def score_sample(metrics: dict, sample: dict, sem: asyncio.Semaphore) -> dict:
+async def score_sample(metrics: dict, sample: dict, sem: asyncio.Semaphore,
+                        category: str | None = None) -> dict:
     # judge sees ONLY these four fields — nothing from notes/category/expect
     assert set(sample) == {"user_input", "response", "retrieved_contexts", "reference"}
     ui, resp = sample["user_input"], sample["response"]
     ctx = sample["retrieved_contexts"] or ["(the system retrieved no context)"]
     ref = sample["reference"]
+    skip = SKIP_METRICS_BY_CATEGORY.get(category, set())
     scores = {}
     async with sem:
         for name, metric in metrics.items():
+            if name in skip:
+                continue
             try:
                 if name == "faithfulness":
                     r = await metric.ascore(user_input=ui, response=resp, retrieved_contexts=ctx)
@@ -334,13 +344,15 @@ async def main():
             except Exception as e:
                 print(f"  ERROR: {e}")
                 out = {"answer": f"(agent error: {e})", "sources": [], "contexts": [],
-                       "tool_calls": []}
+                       "retrieval_contexts": [], "tool_calls": []}
         runs.append({
             "row_id": g["id"], "agent": g["agent"], "category": g["category"],
             "scoring": g["scoring"], "question": g["question"],
             "reference": g.get("reference"), "expect": g.get("expect"),
             "answer": out["answer"], "sources": out["sources"],
-            "contexts": out["contexts"], "tool_calls": out["tool_calls"],
+            "contexts": out["contexts"],
+            "retrieval_contexts": out.get("retrieval_contexts", out["contexts"]),
+            "tool_calls": out["tool_calls"],
         })
     RUNS_JSON.write_text(json.dumps(runs, indent=2, ensure_ascii=False))
     print(f"[saved] raw runs -> {RUNS_JSON}")
@@ -362,8 +374,9 @@ async def score_and_report(runs: list[dict], args):
         tasks = []
         for r in ragas_runs:
             sample = {"user_input": r["question"], "response": r["answer"],
-                      "retrieved_contexts": r["contexts"], "reference": r["reference"]}
-            tasks.append(score_sample(metrics, sample, sem))
+                      "retrieved_contexts": r.get("retrieval_contexts", r["contexts"]),
+                      "reference": r["reference"]}
+            tasks.append(score_sample(metrics, sample, sem, category=r["category"]))
         print(f"[ragas] scoring {len(ragas_runs)} samples x 4 metrics...", flush=True)
         all_scores = await asyncio.gather(*tasks)
         for r, s in zip(ragas_runs, all_scores):
