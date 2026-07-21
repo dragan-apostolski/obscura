@@ -59,7 +59,7 @@ def hybrid_retrieve(query: str, k: int = 20, product: str | None = None,
                    row_number() over (order by embedding <=> %s::vector) as rank
             from chunks
             where true{meta_filter}
-            order by embedding <=> %s::vector
+            order by embedding <=> %s::vector   -- repeat distance (not rank): keeps the `order by <=> limit` pattern HNSW needs
             limit %s
         ),
         kw as (                                     -- arm 2: best keyword matches
