@@ -43,14 +43,14 @@ from pathlib import Path
 
 EVALS_DIR = Path(__file__).parent
 GOLDEN = EVALS_DIR / "golden.jsonl"
-RUNS_JSON = EVALS_DIR / "l06-runs.json"
-REPORT = EVALS_DIR / "l06-ragas-baseline.md"
+RUNS_JSON = EVALS_DIR / "l07-runs.json"
+REPORT = EVALS_DIR / "l07-ragas-baseline.md"
 AGENT_CONCURRENCY = 3   # parallel store-agent runs; higher trips the Anthropic rate limit
 
-# answer_relevancy hard-zeros hedged answers — but hedging is the correct behavior for
-# sparse-data, so scoring it there is misleading. Skipped metrics show as "—" and are
-# excluded from averages.
-SKIP_METRICS_BY_CATEGORY = {"sparse-data": {"answer_relevancy"}}
+# answer_relevancy hard-zeros hedged answers, which is wrong for categories where
+# hedging is correct. Add {category: {metric_name}} here if that recurs. Skipped
+# metrics show as "—" and are excluded from averages.
+SKIP_METRICS_BY_CATEGORY = {}
 
 REFUSAL_MARKERS = [
     "don't know", "do not know", "can't help", "cannot help", "not able to help",

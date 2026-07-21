@@ -278,13 +278,13 @@
 {
   "id": "g23",
   "agent": "store",
-  "category": "sparse-data",
+  "category": "entity",
   "scoring": "ragas",
   "question": "Does the Nikon Z8 have in-body stabilization?",
-  "reference": "The store's spec sheet for the Z8 does not list stabilization information and no manual is on file, so the correct answer states that this isn't covered by available data (optionally offering to help another way). Any concrete stabilization claim (e.g. '5-axis sensor-shift VR') is unsupported by tool output.",
+  "reference": "Yes. The Z8 has camera on-board vibration reduction (VR): 5-axis image sensor shift stabilization. It also supports lens on-board VR (lens shift) with compatible VR lenses. A separate Vibration Reduction menu option lets the user choose Normal, Sport, or Off for photo shooting; availability of this in-lens option varies by lens.",
   "reference_verified": true,
   "expect": null,
-  "notes": "F1 poster child — faithfulness is the metric under test. retrieved_contexts = the tool outputs (product record + empty manual result). Expect LOW faithfulness at baseline; this is a fix-and-remeasure row."
+  "notes": "Recategorized from sparse-data after full manual coverage (was L06's 'no manual on file' case; nikon-z8-manual.pdf now ingested). Reference source-verified against manual pp.492-493 (Vibration Reduction menu) and ~p.1001 (VR spec table: 5-axis image sensor shift)."
 }
 {
   "id": "g24",
