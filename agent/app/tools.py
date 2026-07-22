@@ -92,10 +92,13 @@ def search_products(query: str | None = None, brand: str | None = None,
 def get_product_info(product: str) -> str:
     """Look up a camera in the store catalog: current price, stock availability,
     description and technical specifications. Use for any question about what the
-    store sells, prices, stock, or spec comparisons. `product` is the exact slug
-    from a search_products result — if you don't have one from earlier in the
-    conversation, call search_products first. If the user's question doesn't
-    clearly map to one product, ask them which camera they mean instead of guessing."""
+    store sells, prices, stock, or spec comparisons. Spec coverage varies by product:
+    a missing spec field means "not listed", never "no" — if the field you need is
+    absent and the camera has a manual on file, check search_manual before answering.
+    `product` is the exact slug from a search_products result — if you don't have one
+    from earlier in the conversation, call search_products first. If the user's
+    question doesn't clearly map to one product, ask them which camera they mean
+    instead of guessing."""
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "select name, brand, type, sensor_format, description, price_eur, in_stock, specs "
@@ -123,11 +126,12 @@ def get_product_info(product: str) -> str:
 @tool(response_format="content_and_artifact")
 def search_manual(query: str, product: str) -> tuple[str, list[dict]]:
     """Search a camera's official user manual. Use for how-to, settings, menu and
-    feature questions about a SPECIFIC camera (e.g. "how do I set ISO on the a7 IV").
-    `product` is the exact slug from a search_products result — call search_products
-    first if you don't have one. If the user didn't say which camera they mean,
-    ask — do not guess. Only some cameras have a manual on file; if this one
-    doesn't, the tool says so and lists the ones that do."""
+    feature questions about a SPECIFIC camera (e.g. "how do I set ISO on the a7 IV"),
+    and for capability questions ("does it have X?") when the catalog's spec fields
+    don't list the answer. `product` is the exact slug from a search_products result —
+    call search_products first if you don't have one. If the user didn't say which
+    camera they mean, ask — do not guess. Only some cameras have a manual on file; if
+    this one doesn't, the tool says so and lists the ones that do."""
     available = _manual_slugs()
     if product not in available:
         return (f"No manual on file for '{product}'. Manuals are available for: "

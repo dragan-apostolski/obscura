@@ -164,7 +164,32 @@ def check_expect(expect: dict, run: dict) -> list[dict]:
     if expect.get("answer_must_not_claim_stock"):
         claims = "in stock" in answer and not any(n in answer for n in STOCK_NEGATIONS)
         add("no invented stock claim", "FAIL" if claims else "PASS")
+    for needle in expect.get("tool_output_must_not_contain", []):
+        # tripwire for wasted/failed tool calls (e.g. a wrong-slug manual lookup)
+        ok = norm(needle) not in norm(" ".join(run["contexts"]))
+        add(f"tool output not contains '{needle}'", "PASS" if ok else "FAIL")
     return results
+
+
+async def check_affirm(claim: str, run: dict, judge_llm) -> dict:
+    """`answer_must_affirm`: binary LLM-judged assert — does the answer affirm `claim`?
+    Regex asserts break on paraphrase (the g21 'no'-matches-'Nikon' lesson); a judged
+    yes/no verdict is the stable way to check meaning."""
+    import warnings
+    with warnings.catch_warnings():  # AspectCritic import path is mid-deprecation
+        warnings.simplefilter("ignore")
+        from ragas.metrics import AspectCritic
+    from ragas.dataset_schema import SingleTurnSample
+    critic = AspectCritic(name="affirm", llm=judge_llm,
+                          definition=f"The response affirms that {claim}.")
+    try:
+        verdict = await critic.single_turn_ascore(
+            SingleTurnSample(user_input=run["question"], response=run["answer"]))
+        return {"check": f"affirms '{claim}'", "status": "PASS" if verdict else "FAIL",
+                "detail": f"judge verdict: {verdict}"}
+    except Exception as e:
+        return {"check": f"affirms '{claim}'", "status": "REVIEW",
+                "detail": f"judge error: {type(e).__name__}: {e}"[:200]}
 
 
 # ---------- ragas scoring ----------
@@ -364,15 +389,26 @@ async def main():
 
 
 async def score_and_report(runs: list[dict], args):
-    # asserts
+    # asserts — any row may carry expect, whatever its scoring (row = case, layers = lenses)
     for r in runs:
-        if r["scoring"] in ("deterministic", "behavioral") and r["expect"]:
+        if r["expect"]:
             r["checks"] = check_expect(r["expect"], r)
 
-    # ragas
+    # judge-based checks and metrics
     if not args.skip_ragas:
         metrics = build_metrics()
         sem = asyncio.Semaphore(4)
+
+        # answer_must_affirm asserts (binary judged verdicts)
+        affirm_rows = [r for r in runs if (r["expect"] or {}).get("answer_must_affirm")]
+        if affirm_rows:
+            print(f"[judge] {len(affirm_rows)} affirm asserts...", flush=True)
+            judge_llm = metrics["faithfulness"].llm
+            verdicts = await asyncio.gather(*(
+                check_affirm(r["expect"]["answer_must_affirm"], r, judge_llm)
+                for r in affirm_rows))
+            for r, v in zip(affirm_rows, verdicts):
+                r.setdefault("checks", []).append(v)
         ragas_runs = [r for r in runs if r["scoring"] == "ragas"]
         tasks = []
         for r in ragas_runs:
@@ -384,6 +420,13 @@ async def score_and_report(runs: list[dict], args):
         for r, s in zip(ragas_runs, all_scores):
             r["scores"] = s
             print(f"  {r['row_id']}: {s}")
+    else:
+        # keep skipped judge asserts visible instead of silently absent
+        for r in runs:
+            if (r["expect"] or {}).get("answer_must_affirm"):
+                r.setdefault("checks", []).append(
+                    {"check": "answer_must_affirm", "status": "REVIEW",
+                     "detail": "judge skipped (--skip-ragas)"})
 
     RUNS_JSON.write_text(json.dumps(runs, indent=2, ensure_ascii=False))
     write_report(runs, REPORT)

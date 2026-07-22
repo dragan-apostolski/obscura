@@ -80,8 +80,12 @@
   "question": "How do I set custom white balance on the Fujifilm X100V?",
   "reference": "In the WHITE BALANCE menu, choose one of the three custom white-balance slots to measure white balance from a white reference object (colored objects can also be used to lend photos a color cast). A white balance target is displayed; position and size the target so it is filled by the reference object, then press the shutter button all the way down to measure. If 'COMPLETED !' is displayed, press MENU/OK to set white balance to the measured value; if 'UNDER' is displayed, raise exposure compensation and try again; if 'OVER' is displayed, lower it and try again. To select the most recent custom value and exit without measuring, press DISP/BACK; pressing MENU/OK instead selects the most recent value and displays the fine-tuning dialog.",
   "reference_verified": true,
-  "expect": null,
-  "notes": "Source: X100V manual p.111. The old 'k/l/m' slot letters were pypdf glyph artifacts, not real setting names — removed"
+  "expect": {
+    "tool_output_must_not_contain": [
+      "No manual on file"
+    ]
+  },
+  "notes": "Source: X100V manual p.111. The old 'k/l/m' slot letters were pypdf glyph artifacts, not real setting names — removed. The expect block is a slug tripwire: the agent has guessed 'x100v' instead of 'fujifilm-x100v', producing a failed search_manual call before retrying — that miss surfaces as 'No manual on file' in tool output."
 }
 {
   "id": "g07",
@@ -337,8 +341,13 @@
   "question": "Does the Nikon Z8 have in-body stabilization?",
   "reference": "Yes. The Z8 has camera on-board vibration reduction (VR): 5-axis image sensor shift stabilization. It also supports lens on-board VR (lens shift) with compatible VR lenses. A separate Vibration Reduction menu option lets the user choose Normal, Sport, or Off for photo shooting; availability of this in-lens option varies by lens.",
   "reference_verified": true,
-  "expect": null,
-  "notes": "Recategorized from sparse-data after full manual coverage (was L06's 'no manual on file' case; nikon-z8-manual.pdf now ingested). Reference source-verified against manual pp.492-493 (Vibration Reduction menu) and ~p.1001 (VR spec table: 5-axis image sensor shift)."
+  "expect": {
+    "tools_any": [
+      "search_manual"
+    ],
+    "answer_must_affirm": "the Nikon Z8 has in-body image stabilization"
+  },
+  "notes": "Recategorized from sparse-data after full manual coverage (was L06's 'no manual on file' case; nikon-z8-manual.pdf now ingested). Reference source-verified against manual pp.492-493 (Vibration Reduction menu) and ~p.1001 (VR spec table: 5-axis image sensor shift). PREMISE: nikon-z8 catalog specs lack image_stabilization (checked 2026-07-22), so the correct path must reach the manual — re-audit tools_any if Z8 specs gain that field. Pair row: g30 (spec present in catalog)."
 }
 {
   "id": "g24",
@@ -423,4 +432,20 @@
     }
   },
   "notes": "Roster question — the inverse of g27/g28: the product roster is deliberately NOT in the prompt (L05 scaling decision), so a correct answer REQUIRES search_products(brand=Sony). 20 Sony products as of 2026-07-10. No assert on listing all 20 names — grouping/summarizing is good UX; review the first run manually for invented models (F5-adjacent risk)."
+}
+{
+  "id": "g30",
+  "agent": "store",
+  "category": "routing",
+  "scoring": "behavioral",
+  "question": "Does the Nikon Z6 II have in-body stabilization?",
+  "reference": null,
+  "reference_verified": true,
+  "expect": {
+    "tools_any": [
+      "get_product_info"
+    ],
+    "answer_must_affirm": "the Nikon Z6 II has in-body image stabilization"
+  },
+  "notes": "Pair row of g23, testing the other branch of the spec-fallback policy: nikon-z6-ii catalog specs DO contain image_stabilization=Yes (checked 2026-07-22), so the catalog answers this — no manual needed. Calling search_manual anyway is inefficient but not asserted against. Re-audit if Z6 II specs change."
 }
