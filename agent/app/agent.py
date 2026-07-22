@@ -1,4 +1,4 @@
-"""The main agent — a camera-store ReAct agent (L05, now the shipped agent).
+"""The main agent — a camera-store ReAct agent.
 
 Unlike the deprecated manual_rag graph (hand-wired routing), here the model owns the
 control flow: it picks tools, reads results, and loops until it can answer. Our leverage
@@ -63,40 +63,55 @@ def _sources(messages: list) -> list[str]:
 RETRIEVAL_TOOLS = {"search_manual", "explain_technique", "get_product_info"}
 
 
-def _result(messages: list) -> dict:
-    """Shape agent messages into the eval contract:
-    {answer, sources, contexts, retrieval_contexts, tool_calls}.
+def _answer(messages: list) -> dict:
+    """What a caller of the assistant gets: {answer, sources}. This is the API response."""
+    return {"answer": messages[-1].text, "sources": _sources(messages)}
 
-    contexts = every tool's output, including search_products (used for behavioral
-    asserts, which need the full trace). retrieval_contexts = only RETRIEVAL_TOOLS
-    output — excludes search_products — used for Ragas.
+
+def _trace(messages: list) -> dict:
+    """How the answer was produced — for evaluation, never for the API response.
+
+    contexts            every successful tool call's output, one entry per call
+    retrieval_contexts  evidence only (RETRIEVAL_TOOLS), one entry per chunk; a failed
+                        search contributes nothing
+    tool_calls          name + args of every call, in order
     """
-    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
-    contexts = [str(m.content) for m in tool_messages]
-    retrieval_contexts = [str(m.content) for m in tool_messages if m.name in RETRIEVAL_TOOLS]
-    tool_calls = [
-        {"name": tc["name"], "args": tc["args"]}
-        for m in messages
-        for tc in getattr(m, "tool_calls", None) or []
-    ]
+    tool_messages = [m for m in messages if isinstance(m, ToolMessage) and m.status != "error"]
     return {
-        "answer": messages[-1].text,
-        "sources": _sources(messages),
-        "contexts": contexts,
-        "retrieval_contexts": retrieval_contexts,
-        "tool_calls": tool_calls,
+        "contexts": [str(m.content) for m in tool_messages],
+        "retrieval_contexts": [
+            chunk["content"]
+            for m in tool_messages if m.name in RETRIEVAL_TOOLS
+            for chunk in (m.artifact if m.artifact is not None
+                          else [{"content": str(m.content)}])
+        ],
+        "tool_calls": [
+            {"name": tc["name"], "args": tc["args"]}
+            for m in messages
+            for tc in getattr(m, "tool_calls", None) or []
+        ],
     }
+
+
+def _invoke(query: str) -> list:
+    return agent.invoke({"messages": [{"role": "user", "content": query}]})["messages"]
 
 
 def ask(query: str) -> dict:
     """Run the agent on one question."""
-    result = agent.invoke({"messages": [{"role": "user", "content": query}]})
-    return _result(result["messages"])
+    return _answer(_invoke(query))
+
+
+def ask_traced(query: str) -> dict:
+    """Same run as ask(), plus the evaluation trace. For evals, not the API."""
+    messages = _invoke(query)
+    return {**_answer(messages), **_trace(messages)}
 
 
 async def ask_batch(queries: list[str], max_concurrency: int = 3,
                     per_item_timeout: float = 150.0) -> list[dict]:
-    """Run questions concurrently (IO-bound on the model API), bounded by a semaphore.
+    """Run questions concurrently, traced (this is the eval path). IO-bound on the
+    model API, so bounded by a semaphore.
     Order preserved; a failed/timed-out run yields an error dict instead of aborting.
     Concurrency is kept low on purpose — too many parallel calls trip the API rate
     limit and the retry backoff ends up slower than sequential. per_item_timeout is a
@@ -114,7 +129,7 @@ async def ask_batch(queries: list[str], max_concurrency: int = 3,
                     agent.ainvoke({"messages": [{"role": "user", "content": q}]}),
                     timeout=per_item_timeout,
                 )
-                results[i] = _result(r["messages"])
+                results[i] = {**_answer(r["messages"]), **_trace(r["messages"])}
             except Exception as e:
                 results[i] = {"answer": f"(agent error: {type(e).__name__}: {e})",
                               "sources": [], "contexts": [], "retrieval_contexts": [],

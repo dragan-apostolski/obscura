@@ -7,3 +7,4 @@ data/*
 .ragas_cache/
 .pytest_cache/
 .ruff_cache/
+scratch/

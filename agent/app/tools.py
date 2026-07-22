@@ -1,7 +1,11 @@
-"""L05 — the camera-store agent's tools.
+"""The camera-store agent's tools.
 
-Each tool returns a plain string (it becomes a ToolMessage). The docstrings are the
-model's only view of these functions — they carry the routing rules.
+Each tool returns a string that becomes a ToolMessage. The docstrings are the model's
+only view of these functions — they carry the routing rules.
+
+The two search tools also return the chunk list itself as the ToolMessage's `artifact`:
+same text to the model, but callers that need the chunks as data (sources, evals) read
+them instead of re-parsing the formatted string.
 """
 import json
 from typing import Literal
@@ -116,8 +120,8 @@ def get_product_info(product: str) -> str:
     })
 
 
-@tool
-def search_manual(query: str, product: str) -> str:
+@tool(response_format="content_and_artifact")
+def search_manual(query: str, product: str) -> tuple[str, list[dict]]:
     """Search a camera's official user manual. Use for how-to, settings, menu and
     feature questions about a SPECIFIC camera (e.g. "how do I set ISO on the a7 IV").
     `product` is the exact slug from a search_products result — call search_products
@@ -127,22 +131,22 @@ def search_manual(query: str, product: str) -> str:
     available = _manual_slugs()
     if product not in available:
         return (f"No manual on file for '{product}'. Manuals are available for: "
-                f"{', '.join(sorted(available))}.")
+                f"{', '.join(sorted(available))}.", [])
     chunks = rerank(query, hybrid_retrieve(query, k=20, product=product, doc_type="manual"), top_n=5)
     if not chunks:
-        return f"The {product} manual has no passages matching '{query}'."
-    return _format_chunks(chunks)
+        return f"The {product} manual has no passages matching '{query}'.", []
+    return _format_chunks(chunks), chunks
 
 
-@tool
-def explain_technique(query: str) -> str:
+@tool(response_format="content_and_artifact")
+def explain_technique(query: str) -> tuple[str, list[dict]]:
     """Search the store's photography technique guides (exposure, aperture, ISO,
     bokeh, composition, white balance, metering...). Use for general photography
     questions that are not about one specific camera's controls or menus."""
     chunks = rerank(query, hybrid_retrieve(query, k=20, doc_type="technique"), top_n=5)
     if not chunks:
-        return f"No technique guide covers '{query}'."
-    return _format_chunks(chunks)
+        return f"No technique guide covers '{query}'.", []
+    return _format_chunks(chunks), chunks
 
 
 TOOLS = [search_products, get_product_info, search_manual, explain_technique]
