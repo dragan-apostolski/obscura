@@ -18,10 +18,11 @@ cp .env.example .env          # fill DATABASE_URL, ANTHROPIC_API_KEY
 uv run python -m app.ingest
 uv run uvicorn app.main:app --reload
 
-pytest                                            # tests
-uv run python -m evals.run_eval --only g01,g13    # smoke eval
+uv run python -m evals.retrieval_eval             # retriever only, no agent → evals/retrieval-baseline.md
+uv run python -m evals.run_eval --only <ids>      # smoke eval on a subset
 uv run python -m evals.run_eval --skip-ragas      # deterministic asserts only
-uv run python -m evals.run_eval                   # full run → evals/l06-ragas-baseline.md
+uv run python -m evals.run_eval --from-runs       # rescore cached runs, no agent calls
+uv run python -m evals.run_eval                   # full agent run → evals/e2e-baseline.md
 
 uv run ruff check app evals                       # lint, line length 100
 ```
@@ -35,16 +36,14 @@ data/  →  ingest  →  chunks (pgvector)
                          ↓
                     rerank (cross-encoder)
                          ↓
-        ┌────────────────┴────────────────┐
-        ↓                                 ↓
-  L04 StateGraph                   L05 ReAct agent
-  retrieve→grade→rewrite→answer    tools: search_products,
-  POST /ask                        get_product_info,
-                                   search_manual, explain_technique
-                                   POST /store/ask
+                         ↓
+                  L05 ReAct store agent
+                  tools: search_products, get_product_info,
+                         search_manual, explain_technique
+                  POST /ask · POST /store/ask (alias)
 ```
 
-`POST /store/ask` is the primary demo path. `POST /ask` (LangGraph agent) remains for eval comparison and Ragas baselines.
+The L04 StateGraph (`app/manual_rag_agent.py`, retrieve→grade→rewrite→answer) is deprecated — kept for comparison only, no endpoint.
 
 Product catalog lives in the `products` table + `catalog/products.json`, seeded via `sql/003_product_catalog.sql`. Manual slugs in `MANUAL_META` (`app/ingest.py`) must match `products.slug`.
 
@@ -63,13 +62,13 @@ app/
   ingest.py       load PDFs/HTML/txt → store
   retrieval.py    vector + hybrid search
   rerank.py       cross-encoder rerank
-  agent.py        LangGraph agent (retrieve → grade → rewrite loop → answer)
-  store_agent.py  ReAct store agent
-  tools.py        tool definitions — docstrings are routing logic; treat edits as prompt engineering
-  main.py         FastAPI endpoints
+  agent.py          ReAct store agent — `ask()` is the API contract, `ask_traced()` adds the eval trace
+  manual_rag_agent.py  deprecated L04 graph (retrieve → grade → rewrite → answer)
+  tools.py          tool definitions — docstrings are routing logic; treat edits as prompt engineering
+  main.py           FastAPI endpoints
 sql/              schema migrations, run in order in Supabase
 catalog/          product seed data
-evals/            golden set, harness, run logs (l03–l06-*.md)
+evals/            golden set, harness, run logs (l03–l07-*.md)
 data/             source docs (gitignored)
 ```
 
@@ -87,9 +86,11 @@ data/             source docs (gitignored)
 2. For agent changes, run a small eval subset before full Ragas (costs judge tokens).
 3. Log results in `evals/l0N-*.md` following the existing run-log format.
 
-## Known open issues (from L05 log)
+## Known open issues (L07)
 
-- Ungrounded spec claims when the manual lacks the fact — agent should say "not in manual", not invent.
-- X100V manual exists but the agent sometimes declines film-simulation questions.
-- Scope refusal followed by answering anyway on off-topic questions.
-- `g24`: `reference_verified: false` — spec numbers need catalog verification.
+- Reranker mis-scores some rows: off-topic chunks outrank the right ones (seen on `g02`, shutter speed).
+- `search_manual` never surfaces the Z8 vibration-reduction page (`g23`) — a real retrieval miss.
+- `get_product_info`'s docstring says "spec comparisons", so the agent uses it for feature
+  questions ("does it have IBIS") that belong in the manual, not the sparse catalog `specs`.
+- Catalog contradicts itself on Z6 II video (description 4K 60p vs specs 4K 30p).
+- No tests exist yet — `pytest` collects nothing.

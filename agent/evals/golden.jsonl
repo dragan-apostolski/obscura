@@ -3,6 +3,9 @@
   "agent": "store",
   "category": "concept",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "technique"
+  },
   "question": "What is bokeh?",
   "reference": "Bokeh is the aesthetic quality of the blur produced in the out-of-focus parts of an image (foreground or background), created by using a wide aperture lens; it has also been defined as 'the way the lens renders out-of-focus points of light'. The term comes from the Japanese word boke, meaning 'blur' or 'haze'. Although bokeh is most visible around small background highlights such as light sources, it is not limited to highlights — blur occurs in all image regions outside the depth of field, and restricting the term to bright spots caused by circles of confusion is incorrect. Differences in lens aberrations and aperture shape produce different bokeh: some lenses blur in a pleasing way ('good' bokeh), others in a distracting way ('bad' bokeh). Photographers may deliberately use shallow focus to accentuate a lens's bokeh. The opposite — an image in which multiple distances are all in focus — is deep focus.",
   "reference_verified": true,
@@ -14,6 +17,9 @@
   "agent": "store",
   "category": "concept",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "technique"
+  },
   "question": "When should I use a fast shutter speed?",
   "reference": "Use a fast shutter speed to freeze fast-moving subjects, for example at sporting events. Typical uses: 1/8000 s for very fast subjects like birds or planes (good light, ISO 1000+, large aperture), 1/4000 s for fast subjects like athletes or vehicles, 1/2000–1/1000 s for moderately fast subjects in normal light, 1/500–1/250 s for people in motion; 1/125 s and slower no longer freeze motion. Faster speeds are also needed when an image is intended for significant enlargement and close-up viewing, to avoid obvious blur. To avoid camera-shake blur handheld, use the shutter speed numerically closest to the lens focal length (e.g. 1/60 s with a 50 mm lens). Shutter priority (Tv mode on Canon, S on Nikon and most other brands) lets the photographer set the shutter speed while the camera picks the aperture. Caveat: excessively fast shutter speeds can make a moving subject appear unnaturally frozen, e.g. a runner caught with both feet in the air.",
   "reference_verified": true,
@@ -25,6 +31,9 @@
   "agent": "store",
   "category": "concept",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "technique"
+  },
   "question": "What is the rule of thirds?",
   "reference": "The rule of thirds is a rule of thumb for composing visual art such as photographs, films and paintings. The image is imagined as divided into nine equal parts by two equally spaced horizontal lines and two equally spaced vertical lines, and important compositional elements are placed along these lines or their intersections; aligning a subject with these points is held to create more tension, energy and interest than simply centering it. Typical applications: placing the horizon on the top or bottom line, and lining a person's body up with a vertical line and their eyes with a horizontal line. Its main purpose is to discourage placing the subject at the center or letting a horizon divide the picture in half. The expression was first written down by John Thomas Smith in 1797.",
   "reference_verified": true,
@@ -36,6 +45,9 @@
   "agent": "store",
   "category": "concept",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "technique"
+  },
   "question": "How does aperture affect depth of field?",
   "reference": "A smaller aperture (higher f-number) increases depth of field: only light travelling at shallower angles passes through the aperture, so the circles of confusion are reduced and objects over a wider range of distances appear acceptably sharp. Conversely, increasing the aperture size (reducing the f-number) reduces depth of field. Approximately, DOF ≈ 2u²Nc/f², where c is the maximum acceptable circle-of-confusion diameter, f the focal length, N the f-number, and u the distance to the subject — so DOF changes linearly with f-number and circle of confusion, with the square of subject distance, and inversely with the square of focal length.",
   "reference_verified": true,
@@ -47,6 +59,9 @@
   "agent": "store",
   "category": "concept",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "technique"
+  },
   "question": "What is ISO?",
   "reference": "Film speed is the measure of a photographic film's sensitivity to light; the most recent scale is the ISO system, introduced in 1974, which combined and superseded the earlier ASA (US) and DIN (Europe) standards. ISO defines both an arithmetic scale, where doubling the number means doubling the sensitivity, and a logarithmic degree scale (corresponding to DIN), where adding 3° doubles sensitivity — written together as e.g. 'ISO 100/21°', though the logarithmic part is commonly omitted. A closely related system, also called ISO, describes the relationship between exposure and output image lightness in digital cameras, standardized in ISO 12232 (first published August 1998, revised April 2006, corrected October 2006, revised again February 2019). Higher sensitivities require shorter exposures but typically reduce image quality through coarser film grain or increased digital noise.",
   "reference_verified": true,
@@ -58,6 +73,10 @@
   "agent": "store",
   "category": "entity",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "manual",
+    "product": "fujifilm-x100v"
+  },
   "question": "How do I set custom white balance on the Fujifilm X100V?",
   "reference": "In the WHITE BALANCE menu, choose one of the three custom white-balance slots to measure white balance from a white reference object (colored objects can also be used to lend photos a color cast). A white balance target is displayed; position and size the target so it is filled by the reference object, then press the shutter button all the way down to measure. If 'COMPLETED !' is displayed, press MENU/OK to set white balance to the measured value; if 'UNDER' is displayed, raise exposure compensation and try again; if 'OVER' is displayed, lower it and try again. To select the most recent custom value and exit without measuring, press DISP/BACK; pressing MENU/OK instead selects the most recent value and displays the fine-tuning dialog.",
   "reference_verified": true,
@@ -69,6 +88,10 @@
   "agent": "store",
   "category": "entity",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "manual",
+    "product": "canon-eos-r5"
+  },
   "question": "How do I set custom white balance on the Canon EOS R5?",
   "reference": "Aim the camera at a plain white object so that white fills the screen, set the lens's focus mode switch as instructed, and shoot to obtain standard exposure for the white object; any white balance setting can be used for this shot. Instead of a white object you can shoot a gray card or standard 18% gray reflector. Then select Custom White Balance in the menu, select the captured image, and choose OK to import the white balance data. Finally, open the White balance setting and select the custom white balance option. Cautions: if the exposure of the reference shot differs greatly from standard exposure, a correct white balance may not be obtained; images shot with Picture Style set to Monochrome, multiple-exposure images, cropped images, and images shot with another camera cannot be selected.",
   "reference_verified": true,
@@ -80,6 +103,10 @@
   "agent": "store",
   "category": "entity",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "manual",
+    "product": "canon-eos-r5"
+  },
   "question": "How do I enable animal eye autofocus on the Canon EOS R5?",
   "reference": "Set the AF method to (Face)+Tracking, set 'Eye detection' to Enable in the AF menu, and set 'Subject to detect' to Animals. With Animals selected, the camera detects animals (dogs, cats, or birds) and people, prioritizes animals as the main subject to track, and shows AF points over any detected animal faces; when a face or entire body cannot be detected it may track part of the body. Aim the camera at the subject and an AF point is displayed around its eye; if your selected eye is not detected, an eye is chosen automatically. To choose which eye to focus on, press the button to change the AF point and use the multi-controller, or tap the screen, then take the picture. Eyes may not be detected correctly depending on the subject and shooting conditions.",
   "reference_verified": true,
@@ -91,6 +118,10 @@
   "agent": "store",
   "category": "cross-section",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "manual",
+    "product": "fujifilm-x100v"
+  },
   "question": "How do I use film simulation modes on the Fujifilm X100V?",
   "reference": "FILM SIMULATION is in the shooting menu (image quality settings): simulate the effects of different films, including black-and-white with or without color filters. Options: PROVIA/STANDARD (wide range of subjects), Velvia/VIVID (landscape/nature), ASTIA/SOFT (subdued), CLASSIC CHROME (soft color, enhanced shadow contrast), PRO Neg. Hi and PRO Neg. Std (portrait), CLASSIC Neg., ETERNA/CINEMA (film-look movies), plus ACROS and MONOCHROME (with Ye/R/G filters) and SEPIA. Film simulation bracketing can shoot three simulations at once; a separate F FILM SIMULATION setting applies to movie recording.",
   "reference_verified": true,
@@ -102,6 +133,10 @@
   "agent": "store",
   "category": "entity",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "manual",
+    "product": "sony-a7-iv"
+  },
   "question": "How do I set white balance on the Sony a7 IV?",
   "reference": "Set white balance via MENU → (Exposure/Color) → White Balance → White Balance → desired setting. Options include Auto (plus Auto: Ambience and Auto: White), presets (Daylight, Shade, Cloudy, Incandescent, Fluor. Warm White/Cool White/Day White/Daylight, Flash, Underwater Auto), C.Temp./Filter (adjusts color temperature with a CC-filter effect), and Custom 1–3. To calibrate a custom white balance: select Custom 1–3, press the right side of the control wheel, select the custom white balance set icon, hold the camera so a white area fully covers the white-balance capture frame and press the center of the control wheel; after the message 'Captured the custom WB data.' the calibrated values are displayed, and pressing the center again registers them. Related settings under White Balance: Priority Set in AWB (Standard/Ambience/White), Shutter AWB Lock (locks white balance while the shutter is half-pressed or during continuous shooting), and Shockless WB (smooths white-balance switching during movie recording).",
   "reference_verified": true,
@@ -113,6 +148,10 @@
   "agent": "store",
   "category": "cross-section",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "manual",
+    "product": "nikon-z6-ii"
+  },
   "question": "How do I shoot a time-lapse movie on the Nikon Z6 II?",
   "reference": "Use the [Time-lapse movie] item in the photo shooting menu: the camera automatically takes photos at selected intervals to create a time-lapse movie. Highlight [Time-lapse movie] in the photo shooting menu and adjust the settings: [Interval] between shots in minutes and seconds (choose an interval longer than the slowest anticipated shutter speed) and [Shooting time] in hours and minutes (maximum 7 hours 59 minutes). Other options: [Exposure smoothing] smooths abrupt changes in exposure, [Silent photography] silences the shutter, image area ([FX] or [DX]), [Frame size/frame rate], [Interval priority], [Focus before each shot], and [Destination] (which card slot records the movie). Highlight [Start] and press the OK button to begin; shooting starts after about 3 seconds and the display turns off during shooting. To end early, press the OK button or select [Time-lapse movie] → [Off] — a movie is created from the frames shot to that point. Use a fully-charged battery or an AC adapter so shooting is not interrupted; sound is not recorded, the maximum movie length is 20 minutes, and for consistent coloration choose a white balance setting other than [Auto] or [Natural light auto].",
   "reference_verified": true,
@@ -124,6 +163,10 @@
   "agent": "store",
   "category": "entity",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "manual",
+    "product": "panasonic-lumix-s5-ii"
+  },
   "question": "How do I format a memory card on the Panasonic Lumix S5 II?",
   "reference": "Cards are formatted with [Card Format] in the [Setup] menu under [Card/File], where you select [Card Slot 1] or [Card Slot 2] to format (initialize) the card in that slot. Format cards with the camera before use. When a card is formatted, all data stored on it is erased and cannot be restored, so save a backup of necessary data first. Do not turn off the camera or perform another operation while formatting is in progress. If the card was formatted with a PC or other device, format it again with the camera. You can also format the card while keeping the camera settings information stored on it, via [Save/Restore Camera Setting].",
   "reference_verified": true,
@@ -251,8 +294,13 @@
   "reference": null,
   "reference_verified": true,
   "expect": {
-    "tools_any": ["search_products"],
-    "answer_must_match_any": ["x100v", "x-?t5"]
+    "tools_any": [
+      "search_products"
+    ],
+    "answer_must_match_any": [
+      "x100v",
+      "x-?t5"
+    ]
   },
   "notes": "Fujifilm added to the catalog 2026-07-10 (X100V, X-T5). Row flipped from a refusal to a positive: agent should confirm and name a Fujifilm model, resolving it via search_products (no longer answerable from the prompt alone)."
 }
@@ -271,7 +319,9 @@
       "doesn'?t appear",
       "couldn'?t find"
     ],
-    "answer_must_not_match": ["a6600(?:(?!\\bnot\\b)[^.])*in stock"]
+    "answer_must_not_match": [
+      "a6600(?:(?!\\bnot\\b)[^.])*in stock"
+    ]
   },
   "notes": "F5 probe — real camera, NOT in catalog (a6100/a6400/a6700 are). Must decline the a6600 (intent-regex, tolerant of filler like 'currently') and may offer in-stock alternatives — only claiming the a6600 itself is in stock fails."
 }
@@ -280,6 +330,10 @@
   "agent": "store",
   "category": "entity",
   "scoring": "ragas",
+  "retrieval": {
+    "doc_type": "manual",
+    "product": "nikon-z8"
+  },
   "question": "Does the Nikon Z8 have in-body stabilization?",
   "reference": "Yes. The Z8 has camera on-board vibration reduction (VR): 5-axis image sensor shift stabilization. It also supports lens on-board VR (lens shift) with compatible VR lenses. A separate Vibration Reduction menu option lets the user choose Normal, Sport, or Off for photo shooting; availability of this in-lens option varies by lens.",
   "reference_verified": true,
@@ -306,8 +360,13 @@
   "reference": null,
   "reference_verified": true,
   "expect": {
-    "tools_any": ["search_manual"],
-    "answer_must_not_contain": ["don't have manual access", "no manual access"]
+    "tools_any": [
+      "search_manual"
+    ],
+    "answer_must_not_contain": [
+      "don't have manual access",
+      "no manual access"
+    ]
   },
   "notes": "F3 DECIDED (2026-07-10): manuals exist independently of the catalog — agent should call search_manual(x100v) and answer grounded (answer quality is covered by g09 on manual_rag; this row tests the routing). EXPECTED TO FAIL at baseline: l05 Q10 showed the agent refuses via the brand line. The fix is a store_agent prompt/docstring change (tell it manual coverage ≠ catalog) — an eval-driven-iteration row for L07."
 }

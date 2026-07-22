@@ -1,12 +1,15 @@
-"""L06 eval harness: run the golden dataset against the store agent and score it.
+"""Agent eval harness: run the golden dataset against the store agent and score it.
 
-Three scoring paths, chosen per row by its `scoring` field:
-  deterministic/behavioral -> plain asserts against the `expect` object
-  ragas                    -> 4 metrics, judge = Gemini (settings.judge_model)
+Two scoring paths, chosen per row by its `scoring` field:
+  deterministic/behavioral -> plain asserts against the `expect` object (trajectory)
+  ragas                    -> faithfulness + answer relevancy, judge = Gemini (end-to-end)
+
+Retrieval quality (context precision/recall) is NOT scored here — that's measured
+against the retriever directly, without the agent, in evals/retrieval_eval.py.
 
 Usage:
-  uv run python -m evals.run_eval                 # full run -> evals/l06-ragas-baseline.md
-  uv run python -m evals.run_eval --only g01,g13  # subset (smoke test)
+  uv run python -m evals.run_eval                 # full run -> evals/e2e-baseline.md
+  uv run python -m evals.run_eval --only <ids>    # subset (smoke test)
   uv run python -m evals.run_eval --skip-ragas    # asserts only, no judge calls
   uv run python -m evals.run_eval --from-runs     # re-score cached runs, no agent re-run
 """
@@ -43,8 +46,8 @@ from pathlib import Path
 
 EVALS_DIR = Path(__file__).parent
 GOLDEN = EVALS_DIR / "golden.jsonl"
-RUNS_JSON = EVALS_DIR / "l07-runs.json"
-REPORT = EVALS_DIR / "l07-ragas-baseline.md"
+RUNS_JSON = EVALS_DIR / "runs.json"
+REPORT = EVALS_DIR / "e2e-baseline.md"
 AGENT_CONCURRENCY = 3   # parallel store-agent runs; higher trips the Anthropic rate limit
 
 # answer_relevancy hard-zeros hedged answers, which is wrong for categories where
@@ -90,8 +93,8 @@ def run_agent(agent: str, question: str) -> dict:
         out = ask(question)
         out.setdefault("tool_calls", [])
     else:
-        from app.agent import ask
-        out = ask(question)
+        from app.agent import ask_traced
+        out = ask_traced(question)
     out.setdefault("retrieval_contexts", out.get("contexts", []))
     return out
 
@@ -192,6 +195,8 @@ def build_metrics():
         async def aembed_text(self, text: str, **kwargs) -> list[float]:
             return self.embed_text(text)
 
+    # faithfulness + answer_relevancy are scored here (end-to-end);
+    # context_precision + context_recall are used by evals/retrieval_eval.py
     return {
         "faithfulness": Faithfulness(llm=llm),
         "answer_relevancy": AnswerRelevancy(llm=llm, embeddings=LocalBge()),
@@ -202,26 +207,22 @@ def build_metrics():
 
 async def score_sample(metrics: dict, sample: dict, sem: asyncio.Semaphore,
                         category: str | None = None) -> dict:
-    # judge sees ONLY these four fields — nothing from notes/category/expect
-    assert set(sample) == {"user_input", "response", "retrieved_contexts", "reference"}
+    # judge sees ONLY these three fields — nothing from notes/category/expect
+    assert set(sample) == {"user_input", "response", "retrieved_contexts"}
     ui, resp = sample["user_input"], sample["response"]
     ctx = sample["retrieved_contexts"] or ["(the system retrieved no context)"]
-    ref = sample["reference"]
     skip = SKIP_METRICS_BY_CATEGORY.get(category, set())
     scores = {}
     async with sem:
-        for name, metric in metrics.items():
+        for name in ("faithfulness", "answer_relevancy"):
             if name in skip:
                 continue
+            metric = metrics[name]
             try:
                 if name == "faithfulness":
                     r = await metric.ascore(user_input=ui, response=resp, retrieved_contexts=ctx)
-                elif name == "answer_relevancy":
+                else:  # answer_relevancy
                     r = await metric.ascore(user_input=ui, response=resp)
-                elif name == "context_precision":
-                    r = await metric.ascore(user_input=ui, reference=ref, retrieved_contexts=ctx)
-                else:  # context_recall
-                    r = await metric.ascore(user_input=ui, retrieved_contexts=ctx, reference=ref)
                 scores[name] = round(float(r.value), 3)
             except Exception as e:  # keep the run alive; record the failure
                 scores[name] = None
@@ -236,20 +237,20 @@ def write_report(rows: list[dict], report_path: Path):
 
     ragas_rows = [r for r in rows if r.get("scores")]
     assert_rows = [r for r in rows if r.get("checks")]
-    metric_names = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
+    metric_names = ["faithfulness", "answer_relevancy"]
 
     def fmt(v):
         return f"{v:.2f}" if isinstance(v, float) else "—"
 
     lines = [
-        "# L06 — golden-set baseline",
+        "# Agent baseline — trajectory asserts + end-to-end answer quality",
         "",
         f"Judge: `{settings.judge_model}` via Gemini's OpenAI-compatible endpoint "
         f"(cross-model — generator is `{settings.generation_model}`, so no self-preference bias). "
-        "Embeddings: local bge-small. "
-        "Golden set: `golden.jsonl` (29 rows, all run through the store agent).",
+        "Embeddings: local bge-small. Golden set: `golden.jsonl`. "
+        "Retrieval metrics live in `retrieval-baseline.md` (evals/retrieval_eval.py).",
         "",
-        "## Ragas scores",
+        "## Answer quality (judge)",
         "",
         "| id | agent | category | " + " | ".join(m.replace("_", " ") for m in metric_names) + " |",
         "|---|---|---|" + "---|" * len(metric_names),
@@ -305,11 +306,13 @@ async def main():
     ap.add_argument("--only", help="comma-separated row ids")
     ap.add_argument("--skip-ragas", action="store_true")
     ap.add_argument("--from-runs", action="store_true",
-                    help="score cached l06-runs.json instead of re-running agents")
+                    help="score cached runs json instead of re-running agents")
     args = ap.parse_args()
 
     # score the cached runs — skip the (slow, occasionally-stalling) agent phase
     if args.from_runs:
+        if not RUNS_JSON.exists():
+            sys.exit(f"no cached runs at {RUNS_JSON} — run without --from-runs first")
         runs = json.loads(RUNS_JSON.read_text())
         if args.only:
             wanted = set(args.only.split(","))
@@ -370,14 +373,13 @@ async def score_and_report(runs: list[dict], args):
     if not args.skip_ragas:
         metrics = build_metrics()
         sem = asyncio.Semaphore(4)
-        ragas_runs = [r for r in runs if r["scoring"] == "ragas" and r["reference"]]
+        ragas_runs = [r for r in runs if r["scoring"] == "ragas"]
         tasks = []
         for r in ragas_runs:
             sample = {"user_input": r["question"], "response": r["answer"],
-                      "retrieved_contexts": r.get("retrieval_contexts", r["contexts"]),
-                      "reference": r["reference"]}
+                      "retrieved_contexts": r.get("retrieval_contexts", r["contexts"])}
             tasks.append(score_sample(metrics, sample, sem, category=r["category"]))
-        print(f"[ragas] scoring {len(ragas_runs)} samples x 4 metrics...", flush=True)
+        print(f"[ragas] scoring {len(ragas_runs)} samples x 2 metrics...", flush=True)
         all_scores = await asyncio.gather(*tasks)
         for r, s in zip(ragas_runs, all_scores):
             r["scores"] = s
