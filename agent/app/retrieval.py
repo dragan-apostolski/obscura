@@ -1,4 +1,4 @@
-"""Retrieval.  (L02 — vector search; L03 — hybrid + rerank.)"""
+"""Retrieval: vector search, plus hybrid search with keyword arm + RRF."""
 import re
 
 from app.db import get_conn
@@ -39,7 +39,7 @@ def hybrid_retrieve(query: str, k: int = 20, product: str | None = None,
     """Vector + keyword search, merged with Reciprocal Rank Fusion (RRF).
 
     `product` / `doc_type` restrict BOTH arms to a metadata slice, so filtered-out
-    chunks never enter the candidate pool (L05: no wrong-camera leakage by construction).
+    chunks never enter the candidate pool (no wrong-camera leakage by construction).
     """
     embedding = embed_query(query)
     conds, cond_params = [], []

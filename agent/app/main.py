@@ -17,7 +17,7 @@ class SearchRequest(BaseModel):
 
 @app.post("/search")
 def search(req: SearchRequest):
-    """L02: return retrieved chunks for a query."""
+    """Return retrieved chunks for a query."""
     from app.retrieval import retrieve
     return {"query": req.query, "results": retrieve(req.query, req.k)}
 

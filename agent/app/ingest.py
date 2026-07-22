@@ -1,4 +1,4 @@
-"""L01 ingestion pipeline: load → chunk → embed → store.
+"""Ingestion pipeline: load → chunk → embed → store.
 
 Run:  uv run python -m app.ingest
 Reads everything from ./data (PDFs + .html/.txt), chunks, embeds, inserts into `chunks`.

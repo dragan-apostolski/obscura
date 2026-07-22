@@ -1,10 +1,10 @@
-"""LangGraph agent (L04): retrieve → grade → answer, with a query-rewrite loop.
+"""LangGraph agent: retrieve → grade → answer, with a query-rewrite loop.
 
-DEPRECATED (L06): superseded by the main agent (app/agent.py), which we ship.
+DEPRECATED: superseded by the main agent (app/agent.py), which we ship.
 Its global (unfiltered) retrieval loses to the main agent's product-scoped search_manual
-on per-camera questions (see evals/l06-ragas-baseline.md). Kept for reference/comparison only.
+on per-camera questions (see evals/SCORECARD.md). Kept for reference/comparison only.
 
-Same building blocks as the L03 pipeline (hybrid_retrieve, rerank, grounded prompt),
+Same building blocks as the linear pipeline (hybrid_retrieve, rerank, grounded prompt),
 arranged as a StateGraph with one decision point: if retrieval looks weak,
 rewrite the query and retry once.
 """

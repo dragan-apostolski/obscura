@@ -1,4 +1,4 @@
-"""Text → chunks.  (L01 — you implement this in the lesson.)
+"""Text → chunks.
 
 Goal: token-aware fixed-size chunks (~400 tokens, ~50 overlap) using tiktoken.
 Start fixed-size; we revisit semantic chunking in the evals lesson.
