@@ -5,9 +5,12 @@ from app.db import get_conn
 from app.embeddings import embed_query
 
 
-def _query_rows(sql: str, params: tuple) -> list[tuple]:
-    """Run a read query and return all rows."""
+def _query_rows(sql: str, params: tuple, setup: tuple[str, ...] = ()) -> list[tuple]:
+    """Run a read query and return all rows. `setup` statements (e.g. `set local ...`)
+    run first on the same connection/transaction."""
     with get_conn() as conn, conn.cursor() as cur:
+        for stmt in setup:
+            cur.execute(stmt)
         cur.execute(sql, params)
         return cur.fetchall()
 
@@ -80,5 +83,12 @@ def hybrid_retrieve(query: str, k: int = 20, product: str | None = None,
     """
     params = (_or_tsquery(query), embedding, *cond_params, embedding, POOL,
               *cond_params, POOL, RRF_K, RRF_K, k)
-    rows = _query_rows(sql, params)
+    # HNSW is approximate: with a metadata filter over a large corpus, the default scan
+    # (ef_search=40) finds candidates globally, the filter discards most, and true
+    # matches inside the slice get missed. Widen the graph search and keep scanning
+    # until the LIMIT is met post-filter (pgvector >= 0.8).
+    rows = _query_rows(sql, params, setup=(
+        "set local hnsw.ef_search = 200",
+        "set local hnsw.iterative_scan = 'relaxed_order'",
+    ))
     return [{"content": c, "source": s, "score": score} for c, s, score in rows]

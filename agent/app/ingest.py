@@ -105,16 +105,63 @@ def load_document(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def ingest() -> None:
+MIN_TOC_ENTRIES = 10   # fewer than this → TOC too sparse to define useful sections
+
+
+def load_pdf_sections(path: Path) -> list[tuple[str, str]] | None:
+    """Split a PDF into TOC-defined sections: [(heading_path, text)].
+
+    A section runs from its TOC entry's page to the next entry's page, so each one
+    covers a single topic. Returns None when the PDF has no usable TOC (caller falls
+    back to plain fixed-size chunking of the full text).
+    """
+    with fitz.open(str(path)) as doc:
+        toc = doc.get_toc()
+        if len(toc) < MIN_TOC_ENTRIES:
+            return None
+        stack: list[str] = []      # heading titles by nesting level
+        sections = []
+        for i, (level, title, page) in enumerate(toc):
+            stack = stack[: level - 1] + [title.strip()]
+            if page < 1:                       # TOC entry with no valid page link
+                continue
+            next_page = toc[i + 1][2] if i + 1 < len(toc) else doc.page_count + 1
+            start, end = page - 1, max(next_page - 1, page)
+            text = "\n".join(doc[p].get_text() for p in range(start, min(end, doc.page_count)))
+            sections.append((" > ".join(stack), text))
+        return sections
+
+
+def chunk_document(path: Path, meta: dict) -> list[str]:
+    """Chunk a source file; PDF manuals with a TOC get section-aware chunks.
+
+    Section chunks are prefixed with their heading path (e.g. "[nikon-z8 manual —
+    The Photo Shooting Menu > Vibration Reduction]") so the section's topic enters
+    the embedding and keyword index even when the body text uses different vocabulary
+    than a user's query."""
+    if path.suffix.lower() == ".pdf" and (sections := load_pdf_sections(path)):
+        return [
+            f"[{meta['product']} manual — {heading}]\n{c}"
+            for heading, text in sections
+            for c in chunk_text(text)
+        ]
+    return chunk_text(load_document(path))
+
+
+def ingest(only: set[str] | None = None) -> None:
+    """Ingest ./data into `chunks`. `only` limits to the given filenames (re-ingest probe)."""
     files = [p for p in DATA_DIR.iterdir() if p.suffix.lower() in {".pdf", ".html", ".htm", ".txt"}]
+    if only:
+        if missing := only - {p.name for p in files}:
+            print(f"[warn] requested but not in {DATA_DIR}: {', '.join(sorted(missing))}")
+        files = [p for p in files if p.name in only]
     if not files:
-        print(f"No source docs in {DATA_DIR}. Drop a manual PDF + a technique article there first.")
+        print(f"No source docs to ingest in {DATA_DIR}.")
         return
 
     for path in files:
         meta = file_metadata(path)
-        text = load_document(path)
-        chunks = chunk_text(text)
+        chunks = chunk_document(path, meta)
         vectors = embed(chunks)                         # batches to the embedding API
         rows = [
             {"source": path.name, "content": c, "token_count": count_tokens(c), "embedding": v, **meta}
@@ -127,4 +174,5 @@ def ingest() -> None:
 
 
 if __name__ == "__main__":
-    ingest()
+    import sys
+    ingest(only=set(sys.argv[1:]) or None)
