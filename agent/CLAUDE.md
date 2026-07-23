@@ -18,11 +18,11 @@ cp .env.example .env          # fill DATABASE_URL, ANTHROPIC_API_KEY
 uv run python -m app.ingest
 uv run uvicorn app.main:app --reload
 
-uv run python -m evals.retrieval_eval             # retriever only, no agent → evals/retrieval-baseline.md
+uv run python -m evals.retrieval_eval             # retriever only, no agent → evals/results/<stamp>-retrieval.md
 uv run python -m evals.run_eval --only <ids>      # smoke eval on a subset
 uv run python -m evals.run_eval --skip-ragas      # deterministic asserts only
 uv run python -m evals.run_eval --from-runs       # rescore cached runs, no agent calls
-uv run python -m evals.run_eval                   # full agent run → evals/e2e-baseline.md
+uv run python -m evals.run_eval                   # full agent run → evals/results/<stamp>-e2e.md
 
 uv run ruff check app evals                       # lint, line length 100
 ```

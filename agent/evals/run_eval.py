@@ -8,7 +8,7 @@ Retrieval quality (context precision/recall) is NOT scored here — that's measu
 against the retriever directly, without the agent, in evals/retrieval_eval.py.
 
 Usage:
-  uv run python -m evals.run_eval                 # full run -> evals/e2e-baseline.md
+  uv run python -m evals.run_eval                 # full run -> evals/results/<stamp>-e2e.md
   uv run python -m evals.run_eval --only <ids>    # subset (smoke test)
   uv run python -m evals.run_eval --skip-ragas    # asserts only, no judge calls
   uv run python -m evals.run_eval --from-runs     # re-score cached runs, no agent re-run
@@ -42,12 +42,17 @@ import json
 import re
 import statistics
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 EVALS_DIR = Path(__file__).parent
 GOLDEN = EVALS_DIR / "golden.jsonl"
-RUNS_JSON = EVALS_DIR / "runs.json"
-REPORT = EVALS_DIR / "e2e-baseline.md"
+# each run writes a fresh timestamped pair under results/ so history accumulates
+RESULTS_DIR = EVALS_DIR / "results"
+RESULTS_DIR.mkdir(exist_ok=True)
+RUN_STAMP = datetime.now().strftime("%Y-%m-%d_%H%M")
+RUNS_JSON = RESULTS_DIR / f"{RUN_STAMP}-runs.json"
+REPORT = RESULTS_DIR / f"{RUN_STAMP}-e2e.md"
 AGENT_CONCURRENCY = 3   # parallel store-agent runs; higher trips the Anthropic rate limit
 
 # answer_relevancy hard-zeros hedged answers, which is wrong for categories where
@@ -273,7 +278,7 @@ def write_report(rows: list[dict], report_path: Path):
         f"Judge: `{settings.judge_model}` via Gemini's OpenAI-compatible endpoint "
         f"(cross-model — generator is `{settings.generation_model}`, so no self-preference bias). "
         "Embeddings: local bge-small. Golden set: `golden.jsonl`. "
-        "Retrieval metrics live in `retrieval-baseline.md` (evals/retrieval_eval.py).",
+        "Retrieval metrics live in the matching `*-retrieval.md` (evals/retrieval_eval.py).",
         "",
         "## Answer quality (judge)",
         "",
@@ -334,11 +339,13 @@ async def main():
                     help="score cached runs json instead of re-running agents")
     args = ap.parse_args()
 
-    # score the cached runs — skip the (slow, occasionally-stalling) agent phase
+    # score the newest cached runs — skip the (slow, occasionally-stalling) agent phase
     if args.from_runs:
-        if not RUNS_JSON.exists():
-            sys.exit(f"no cached runs at {RUNS_JSON} — run without --from-runs first")
-        runs = json.loads(RUNS_JSON.read_text())
+        cached = sorted(RESULTS_DIR.glob("*-runs.json"))
+        if not cached:
+            sys.exit(f"no cached runs in {RESULTS_DIR} — run without --from-runs first")
+        print(f"[from-runs] {cached[-1].name}")
+        runs = json.loads(cached[-1].read_text())
         if args.only:
             wanted = set(args.only.split(","))
             runs = [r for r in runs if r["row_id"] in wanted]

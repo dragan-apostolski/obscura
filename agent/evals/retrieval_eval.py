@@ -6,21 +6,21 @@ judge the returned chunks against the row's reference. Failures here are retriev
 failures by construction — the agent, its routing and its prompts are not involved.
 
 Usage:
-  uv run python -m evals.retrieval_eval               # full -> evals/retrieval-baseline.md
+  uv run python -m evals.retrieval_eval               # full -> evals/results/<stamp>-retrieval.md
   uv run python -m evals.retrieval_eval --only <ids>  # subset
 """
 import argparse
 import asyncio
+import json
 import statistics
 import sys
 from collections import defaultdict
-from pathlib import Path
 
 # run_eval also carries the ragas/vertex compat shim, which must load first
-from evals.run_eval import build_metrics, load_golden
+from evals.run_eval import RESULTS_DIR, RUN_STAMP, build_metrics, load_golden
 
-EVALS_DIR = Path(__file__).parent
-REPORT = EVALS_DIR / "retrieval-baseline.md"
+REPORT = RESULTS_DIR / f"{RUN_STAMP}-retrieval.md"
+RESULTS_JSON = RESULTS_DIR / f"{RUN_STAMP}-retrieval.json"
 JUDGE_CONCURRENCY = 4
 TOP_N = 5
 
@@ -122,7 +122,15 @@ async def main():
     for r in results:
         print(f"  {r['row']['id']}: {r['scores']}")
 
+    # raw results for scripts (deltas across runs); the .md is the human view of the same data
+    RESULTS_JSON.write_text(json.dumps([
+        {"row_id": r["row"]["id"], "category": r["row"]["category"],
+         "retrieval": r["row"]["retrieval"], "question": r["row"]["question"],
+         "scores": r["scores"], "chunks": r["chunks"]}
+        for r in results
+    ], indent=2, ensure_ascii=False))
     write_report(results)
+    print(f"[saved] raw results -> {RESULTS_JSON}")
     print(f"[done] report -> {REPORT}")
 
 
