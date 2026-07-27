@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""          # eval judge
 
     embedding_model: str = "BAAI/bge-small-en-v1.5"   # local, free, 384-dim
-    reranker_model: str = "BAAI/bge-reranker-base"    # local cross-encoder
+    reranker_model: str = "BAAI/bge-reranker-large"   # local cross-encoder
     generation_model: str = "claude-sonnet-5"
     request_timeout: float = 90.0   # seconds; ChatAnthropic hangs forever if left unset
     # Ragas judge: Gemini via its OpenAI-compatible endpoint.

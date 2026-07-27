@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from app.chunking import chunk_text, count_tokens
 from app.embeddings import embed
 from app.db import insert_chunks
+from app.textclean import clean_extracted_text
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -99,7 +100,7 @@ def load_document(path: Path) -> str:
     """Extract raw text from a source file (PDF or HTML/text)."""
     if path.suffix.lower() == ".pdf":
         with fitz.open(str(path)) as doc:
-            return "\n".join(page.get_text() for page in doc)
+            return clean_extracted_text("\n".join(page.get_text() for page in doc))
     if path.suffix.lower() in {".html", ".htm"}:
         return BeautifulSoup(path.read_text(encoding="utf-8"), "html.parser").get_text(" ")
     return path.read_text(encoding="utf-8")
@@ -128,7 +129,7 @@ def load_pdf_sections(path: Path) -> list[tuple[str, str]] | None:
             next_page = toc[i + 1][2] if i + 1 < len(toc) else doc.page_count + 1
             start, end = page - 1, max(next_page - 1, page)
             text = "\n".join(doc[p].get_text() for p in range(start, min(end, doc.page_count)))
-            sections.append((" > ".join(stack), text))
+            sections.append((" > ".join(stack), clean_extracted_text(text)))
         return sections
 
 

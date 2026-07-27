@@ -5,6 +5,93 @@ this file is the curated before/after story — pull straight from here for the 
 
 ---
 
+## PDF text-extraction cleanup + TOC-coverage finding — 2026-07-27
+
+**Investigated:** whether garbled PDF text (found while looking at g09's retrieved chunks) was
+a corpus-wide problem. Corpus-wide scan (66 PDFs + live `chunks` table) found several distinct,
+brand-isolated extraction bugs, not one shared problem:
+
+- **Fujifilm (2 files, X100V + X-T5):** ligature glyphs (fi/ff/fl) trip PyMuPDF's word-boundary
+  heuristic, inserting a stray space mid-word ("flash" → "fl ash"). Root cause confirmed via the
+  font's own ToUnicode CMap — the ligature decodes correctly, the *following space* is spurious.
+  Same bug survives a PyMuPDF4LLM swap (shared underlying engine) — a library switch doesn't fix it.
+- **OM-System (1 file):** menu arrow "→" decoded as the letter "U" — silent corruption, no golden
+  coverage to measure against.
+- **Panasonic (7 files):** UI button labels garbled into Japanese Katakana / `�` — no golden
+  coverage, g12 (Panasonic) already at 1.00/1.00 with the large reranker, no room to test.
+- Duplicated table-header lines (`"Options\nOptions"`) and non-breaking spaces: low-grade noise
+  everywhere, worst in Fujifilm.
+
+**Fix implemented (`app/textclean.py`):** NFKC-normalize raw ligature glyphs, then a
+dictionary-gated regex (`pyspellchecker`) that rejoins the ligature+space break only when the
+merged word is real and the un-merged left fragment isn't (protects real word pairs like
+"turn off the camera" from being wrongly glued). Also rejoins line-break hyphenation
+("cam-\nera" → "camera"). Wired into both PDF load paths in `app/ingest.py`. Re-ingested only
+`fujifilm-x100v-manual.pdf` + `fujifilm-x-t5-manual.pdf` to test.
+
+**Result — did NOT move g06/g09:**
+
+| row | before | after | |
+|---|---|---|---|
+| g06 (X100V white balance) | 0.45 / 1.00 | 0.50 / 1.00 | flat, within noise |
+| g09 (X100V film simulation) | 0.25 / 0.67 | 0.00 / 0.67 | flat/noise |
+
+Chunk text is verifiably cleaner now (confirmed in DB — "different kinds of film", "file size"
+etc. now read correctly). But the actual film-simulation content chunk still never reaches the
+top-20 candidate pool pre-rerank (vector-arm rank 57, keyword-arm rank 48) — text corruption
+was never the bottleneck for this row.
+
+**Real root cause found while digging into *why*:** `fujifilm-x100v-manual.pdf` has **zero
+embedded TOC entries**, so `load_pdf_sections` (the section-aware chunker from the 2026-07-23
+fix) never applies to it — it silently falls back to plain fixed-400-token chunking, which is
+what merged "RAW RECORDING" and "FILM SIMULATION" (two separate menu items) into one chunk,
+diluting the embedding. Checked the whole corpus: **34 of 66 manuals — every Canon file, every
+Sony file, plus the X100V — have no embedded TOC** and are all on this same fallback path. This
+is a bigger, uninvestigated lever than anything fixed so far; g10/g11's earlier gains likely came
+from the HNSW fix alone, not chunking, since Sony a7 IV has no TOC either.
+
+**Outcome:** kept the text-cleanup fix (cheap, safe, genuinely improves data quality
+independent of this specific eval row) but did not chase it further — this is a demo project,
+not a perfection target. **Next lever, not yet started:** a fallback section-detector for
+TOC-less PDFs (e.g. detect in-body bold/caps heading spans via `get_text("dict")` font info)
+to extend section-aware chunking to the other 34 files.
+
+---
+
+## Reranker swap: base → large — 2026-07-27
+
+**Targeted:** the vocabulary-gap failures left after chunking/HNSW fixes — g02, g09, g23 all
+scored 0.00 precision because `bge-reranker-base` wouldn't rank the correct chunk top-5 despite
+it being in the candidate pool (e.g. query "stabilization" vs manual text "vibration
+reduction / sensor shift"). Tested `BAAI/bge-reranker-large` on the full 13-row retrieval-eval
+set (only rows with a `retrieval` scope) before swapping anything.
+
+| row | base | large | |
+|---|---|---|---|
+| g23 (Z8 IBIS) | 0.00 / 0.00 | **1.00** / 0.67 | fixed |
+| g02 (ISO vs shutter) | 0.00 / 0.00 | 0.25 / 0.83 | improved, not solved |
+| g09 (film-sim) | 0.00 / 0.67 | 0.25 / 0.67 | improved, not solved |
+| g10 | 0.53 / 0.75 | 0.87 / 1.00 | improved |
+| g11 | 0.89 / 0.83 | 1.00 / 0.83 | improved |
+| g12 | 0.64 / 1.00 | 1.00 / 1.00 | improved |
+| g03 (rule of thirds) | 1.00 / 1.00 | 0.70 / 1.00 | −0.30 precision |
+| g06 (X100V white balance) | 0.75 / 1.00 | 0.45 / 1.00 | −0.30 precision |
+| g01, g04, g05, g07, g08 | — | flat | |
+
+**On the two regressions:** checked the actual retrieved chunks (`results/2026-07-27_1302-retrieval.json`
+vs `2026-07-23_1153-retrieval.json`). Both are tail-end reordering, not lost signal — g03's
+correct chunk is still rank 1 (0.999→0.993), the precision hit comes from near-zero-relevance
+chunks at ranks 3-5 swapping order; g06's correct chunk drops rank 1→2 but stays in the top-5
+(recall unchanged at 1.00 for both). Neither would change the agent's actual answer.
+
+**Outcome:** net positive, no real regression. Swapped `settings.reranker_model` default to
+`BAAI/bge-reranker-large` (`app/config.py`). **g23 fully closed.** g02/g09 still open — right
+chunk is now reachable (recall up) but not ranked top-5; next lever is genuinely different
+(query rewriting / synonym expansion for the vocabulary gap), not another reranker swap.
+Run: `results/2026-07-27_1302-retrieval.*`.
+
+---
+
 ## Section-aware chunking — 2026-07-23
 
 **Weakest cell targeted:** g23 (Nikon Z8 IBIS) retrieval, 0.00/0.00. Root-caused to three
