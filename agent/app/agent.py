@@ -6,13 +6,49 @@ points are the tool docstrings and this system prompt.
 """
 import asyncio
 import re
+from contextlib import contextmanager
 
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import ToolMessage
+from langfuse import Langfuse, get_client, propagate_attributes
+from langfuse.langchain import CallbackHandler
 
 from app.config import settings
 from app.tools import TOOLS
+
+if settings.langfuse_public_key and settings.langfuse_secret_key:
+    Langfuse(
+        public_key=settings.langfuse_public_key,
+        secret_key=settings.langfuse_secret_key,
+        base_url=settings.langfuse_base_url,
+    )
+    _langfuse = get_client()
+    _langfuse_handler = CallbackHandler()
+else:
+    _langfuse = None
+    _langfuse_handler = None
+
+
+class _NoOpSpan:
+    """Stand-in for a Langfuse span when tracing isn't configured — same .update()
+    interface, does nothing."""
+    def update(self, **kwargs):
+        pass
+
+
+@contextmanager
+def _traced_span(name: str, tags: list[str]):
+    """Open a Langfuse root span, or a no-op stand-in if Langfuse isn't configured.
+    Callers always get the same (span, callbacks, trace_id) shape either way, so they
+    never need to branch on whether tracing is on."""
+    if _langfuse is None:
+        yield _NoOpSpan(), [], None
+        return
+    with _langfuse.start_as_current_observation(as_type="span", name=name) as root:
+        with propagate_attributes(tags=tags):
+            yield root, [_langfuse_handler], _langfuse.get_current_trace_id()
+
 
 SYSTEM_PROMPT = """You are the shop assistant of an online camera store. We sell camera
 bodies from Canon, Sony, Nikon, Panasonic, OM System and Fujifilm. At this moment we are only selling camera bodies (new, not used), 
@@ -93,19 +129,39 @@ def _trace(messages: list) -> dict:
     }
 
 
-def _invoke(query: str) -> list:
-    return agent.invoke({"messages": [{"role": "user", "content": query}]})["messages"]
+def _stamp_trace(root, query: str, messages: list) -> None:
+    """Write the clean query/answer/sources onto the root span, so the trace shows a
+    readable summary instead of the raw message blob."""
+    root.update(
+        input={"query": query},
+        output={"answer": messages[-1].text, "sources": _sources(messages)},
+        metadata={"tool_calls": _trace(messages)["tool_calls"]},
+    )
+
+
+def _invoke(query: str) -> tuple[list, str | None]:
+    """Run the agent once. Returns (messages, trace_id) — trace_id is None when
+    Langfuse isn't configured (no keys in .env)."""
+    with _traced_span("ask", ["manual-rag-agent"]) as (root, callbacks, trace_id):
+        messages = agent.invoke(
+            {"messages": [{"role": "user", "content": query}]},
+            config={"callbacks": callbacks},
+        )["messages"]
+        _stamp_trace(root, query, messages)
+    return messages, trace_id
 
 
 def ask(query: str) -> dict:
     """Run the agent on one question."""
-    return _answer(_invoke(query))
+    messages, _ = _invoke(query)
+    return _answer(messages)
 
 
 def ask_traced(query: str) -> dict:
-    """Same run as ask(), plus the evaluation trace. For evals, not the API."""
-    messages = _invoke(query)
-    return {**_answer(messages), **_trace(messages)}
+    """Same run as ask(), plus the evaluation trace and Langfuse trace_id (None if
+    Langfuse isn't configured). For evals, not the API."""
+    messages, trace_id = _invoke(query)
+    return {**_answer(messages), **_trace(messages), "trace_id": trace_id}
 
 
 async def ask_batch(queries: list[str], max_concurrency: int = 3,
@@ -125,15 +181,21 @@ async def ask_batch(queries: list[str], max_concurrency: int = 3,
         nonlocal done
         async with sem:
             try:
-                r = await asyncio.wait_for(
-                    agent.ainvoke({"messages": [{"role": "user", "content": q}]}),
-                    timeout=per_item_timeout,
-                )
-                results[i] = {**_answer(r["messages"]), **_trace(r["messages"])}
+                with _traced_span("ask", ["manual-rag-agent", "eval"]) as (root, callbacks, trace_id):
+                    r = await asyncio.wait_for(
+                        agent.ainvoke(
+                            {"messages": [{"role": "user", "content": q}]},
+                            config={"callbacks": callbacks},
+                        ),
+                        timeout=per_item_timeout,
+                    )
+                    messages = r["messages"]
+                    _stamp_trace(root, q, messages)
+                results[i] = {**_answer(messages), **_trace(messages), "trace_id": trace_id}
             except Exception as e:
                 results[i] = {"answer": f"(agent error: {type(e).__name__}: {e})",
                               "sources": [], "contexts": [], "retrieval_contexts": [],
-                              "tool_calls": []}
+                              "tool_calls": [], "trace_id": None}
         done += 1
         print(f"  [{done}/{len(queries)}] {q[:50]}", flush=True)
 

@@ -49,7 +49,7 @@ Product catalog lives in the `products` table + `catalog/products.json`, seeded 
 
 ## Stack
 
-FastAPI · LangGraph (L04 graph) + LangChain `create_agent` (L05 ReAct) · Supabase Postgres + pgvector · local `BAAI/bge-small-en-v1.5` embeddings (384-dim, no OpenAI key needed) · local `BAAI/bge-reranker-base` · Claude via Anthropic SDK / `langchain-anthropic` · Ragas + deterministic asserts for evals · Langfuse for tracing (not yet instrumented). Package manager: uv, Python ≥ 3.11.
+FastAPI · LangGraph (L04 graph) + LangChain `create_agent` (L05 ReAct) · Supabase Postgres + pgvector · local sentence-transformer embeddings (no OpenAI key needed) · local cross-encoder reranker · Claude via Anthropic SDK / `langchain-anthropic` · Ragas + deterministic asserts for evals · Langfuse for tracing. Package manager: uv, Python ≥ 3.11. Exact model names/dims live in `app/config.py`, the source of truth — don't duplicate them here.
 
 ## Module layout
 

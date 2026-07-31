@@ -388,6 +388,7 @@ async def main():
             "contexts": out["contexts"],
             "retrieval_contexts": out.get("retrieval_contexts", out["contexts"]),
             "tool_calls": out["tool_calls"],
+            "trace_id": out.get("trace_id"),
         })
     RUNS_JSON.write_text(json.dumps(runs, indent=2, ensure_ascii=False))
     print(f"[saved] raw runs -> {RUNS_JSON}")
@@ -396,6 +397,8 @@ async def main():
 
 
 async def score_and_report(runs: list[dict], args):
+    from app.agent import _langfuse
+
     # asserts — any row may carry expect, whatever its scoring (row = case, layers = lenses)
     for r in runs:
         if r["expect"]:
@@ -427,6 +430,13 @@ async def score_and_report(runs: list[dict], args):
         for r, s in zip(ragas_runs, all_scores):
             r["scores"] = s
             print(f"  {r['row_id']}: {s}")
+            if _langfuse is not None and r.get("trace_id"):
+                for name, value in s.items():
+                    if isinstance(value, float):
+                        _langfuse.create_score(
+                            trace_id=r["trace_id"], name=name, value=value,
+                            data_type="NUMERIC",
+                        )
     else:
         # keep skipped judge asserts visible instead of silently absent
         for r in runs:
@@ -434,6 +444,9 @@ async def score_and_report(runs: list[dict], args):
                 r.setdefault("checks", []).append(
                     {"check": "answer_must_affirm", "status": "REVIEW",
                      "detail": "judge skipped (--skip-ragas)"})
+
+    if _langfuse is not None:
+        _langfuse.flush()
 
     RUNS_JSON.write_text(json.dumps(runs, indent=2, ensure_ascii=False))
     write_report(runs, REPORT)
