@@ -31,7 +31,8 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-line py-5 text-center text-xs text-faint">
-        Built as a learning project — photo-rag-assistant, week 1 flagship.
+        Demonstration storefront. Catalog, pricing and stock are fictional; product manuals
+        belong to their manufacturers.
       </div>
     </footer>
   );
