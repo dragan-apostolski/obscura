@@ -1,4 +1,4 @@
-# /ask — L03 grounded RAG test (with retrieved context)
+# /ask — grounded RAG smoke test (with retrieved context)
 
 ## Q: What is the base ISO on the Fujifilm X100V?
 

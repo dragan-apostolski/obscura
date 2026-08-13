@@ -1,10 +1,10 @@
-# L03 baseline probe — 9 questions across categories
+# Retrieval baseline probe — 9 questions across categories
 
-Quick check of retrieval quality before evals (L06–07). Seed for the golden dataset.
+Quick check of retrieval quality before the eval harness existed. Seed for the golden dataset.
 
 **What's measured:** does the top result come from the *correct source* (right camera manual /
 right technique guide)? This is source-level recall, **not** answer correctness — a chunk from the
-right manual can still be the wrong section. Real answer quality comes with Ragas in L06–07.
+right manual can still be the wrong section. Real answer quality comes with Ragas.
 
 - `top1` = correct source is the #1 result
 - `top3(#2)` = correct source is in top 3, at rank 2
@@ -45,7 +45,7 @@ right manual can still be the wrong section. Real answer quality comes with Raga
 - n=9 is directional, not conclusive.
 - "Correct source" labels were hand-authored.
 
-## Prime fix to test later (L07)
+## Prime fix to test later
 
 **Contextual embeddings** (Anthropic Contextual Retrieval) — prepend a short context blurb naming the
 camera/section to each chunk before embedding. Targets the diagnosed bug: answer chunks don't contain

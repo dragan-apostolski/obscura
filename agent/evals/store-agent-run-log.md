@@ -1,9 +1,9 @@
-# L05 — Store agent test run (11 questions)
+# Store agent run log (11 questions)
 
-Date: 2026-07-09 · Agent: `app/store_agent.py` (langchain `create_agent`, claude-sonnet-5, max_tokens 4096, adaptive thinking)
+Date: 2026-07-09 · Agent: the store agent (langchain `create_agent`, claude-sonnet-5, max_tokens 4096, adaptive thinking)
 · Tools: `search_products` (with `Literal` enums on type/sensor_format), `get_product_info`, `search_manual`, `explain_technique`
 
-Mix of the L05 smoke questions (Q1–Q5) and new gear questions probing facets, edge cases, and scope (Q6–Q11).
+Mix of the original smoke questions (Q1–Q5) and new gear questions probing facets, edge cases, and scope (Q6–Q11).
 Full answers in the appendix.
 
 ## Results
@@ -26,7 +26,7 @@ Score: 8/11 clean, 2 instructive failures, 1 cosmetic.
 
 ## Findings
 
-**F1 — Ungrounded spec claim (Q9), the L06 poster child.** The agent did everything right
+**F1 — Ungrounded spec claim (Q9), the faithfulness poster child.** The agent did everything right
 procedurally: fetched the product, then tried the manual for the stabilization question. Both
 came back empty — the Z8's `specs` jsonb has only warranty/camera_type/sensor_type, and
 `search_manual` returned "no manual on file". It then answered anyway, confidently:
@@ -35,7 +35,7 @@ be true of the real Z8, which is exactly why this failure mode is dangerous — 
 until the model's knowledge is stale or wrong (e.g. prices, firmware features). The system
 prompt says "if the tools don't have the answer, say you don't know" — it was ignored when
 parametric knowledge felt confident. Source-level checks can't catch this; **answer-level
-faithfulness (Ragas) is the tool for it → L06.**
+faithfulness (Ragas) is the tool for it.**
 Possible fixes to evaluate: stronger grounding language; richer `specs` at crawl time; or a
 "say what the spec sheet doesn't cover" instruction.
 
@@ -58,25 +58,25 @@ decision.
 **F4 — Literal-but-cheeky scope handling (Q11).** Off-topic question was declined per the
 prompt rule… followed by "(For the record, though: it's Paris.)" Harmless, arguably good UX,
 but a literal violation of "politely decline anything else". A stricter product would tighten
-the instruction; for the portfolio demo it's fine as is.
+the instruction; acceptable as it stands.
 
 **F5 — Slug guessing is now the norm and it works (Q1, Q5, Q9).** The agent skips
 `search_products` and writes slugs directly (`sony-a7-iv`, `nikon-z6-ii`, `nikon-z8`) —
 all correct, format anchored by the docstring example. The prompt only mandates resolution
 "when unsure", and it apparently never is. Safety net (invalid slug → "not in catalog" +
-list of manuals) remains untested in live traffic. Watch in L06.
+list of manuals) remains untested in live traffic. Worth watching.
 
 **F6 — Client-side filtering over tool-side (Q6).** For "cinema under €5000" it called
 `search_products(type=cinema)` with no price filter (the tool has none) and filtered the 8
 rows itself — correctly. Small context cost, correct result. If catalogs grew, a
 `max_price` param would be the fix; at 63 products it's a non-issue.
 
-## Notes for L06
+## Notes for the golden set
 
 - Q9 (F1) and Q5 (F2) become golden-set items testing faithfulness on spec questions.
 - Q10 (F3) forces the manual-coverage design decision before the golden set is authored.
 - Add an invalid-slug probe to exercise the F5 safety net deliberately.
-- These 11 Q&As + the L03 9-question baseline = ~20 seed items of the golden dataset.
+- These 11 Q&As + the 9-question retrieval baseline = ~20 seed items of the golden dataset.
 
 ## Appendix — full transcripts
 

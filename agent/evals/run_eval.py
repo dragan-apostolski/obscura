@@ -178,8 +178,8 @@ def check_expect(expect: dict, run: dict) -> list[dict]:
 
 async def check_affirm(claim: str, run: dict, judge_llm) -> dict:
     """`answer_must_affirm`: binary LLM-judged assert — does the answer affirm `claim`?
-    Regex asserts break on paraphrase (the g21 'no'-matches-'Nikon' lesson); a judged
-    yes/no verdict is the stable way to check meaning."""
+    Regex asserts break on paraphrase — g21 showed a bare 'no' matching inside 'Nikon' —
+    so a judged yes/no verdict is the stable way to check meaning."""
     import warnings
     with warnings.catch_warnings():  # AspectCritic import path is mid-deprecation
         warnings.simplefilter("ignore")

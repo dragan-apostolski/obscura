@@ -1,4 +1,4 @@
--- L01 — schema for the RAG corpus. Run once in Supabase (SQL editor or psql).
+-- 001 — schema for the RAG corpus. Run once, before ingesting.
 
 -- 1. Enable pgvector
 create extension if not exists vector;
@@ -18,5 +18,5 @@ create table if not exists chunks (
 create index if not exists chunks_embedding_hnsw
     on chunks using hnsw (embedding vector_cosine_ops);
 
--- L02 will add a keyword index for hybrid search:
+-- The keyword index for hybrid search is added in 002:
 -- create index if not exists chunks_content_fts on chunks using gin (to_tsvector('english', content));

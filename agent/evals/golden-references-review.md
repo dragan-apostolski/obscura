@@ -1,4 +1,4 @@
-# Golden-set reference verification — L06
+# Golden-set reference verification
 
 Every ragas-scored reference in `golden.jsonl` was rebuilt **source → reference** (never from
 agent answers) and verified claim-by-claim against the corpus by three extraction agents
@@ -38,7 +38,7 @@ a claim retrieval can never support.
 > Very short shutter speeds can be used to freeze fast-moving subjects, for example at sporting events. ... an image intended for significant enlargement and closeup viewing would require faster shutter speeds to avoid obvious blur. ... the slowest shutter speed that can be used easily without much blur due to camera shake is the shutter speed numerically closest to the lens focal length ... 1⁄60 s ... TV (time value on Canon cameras) mode, S mode on Nikons and most other brands. ... Excessively fast shutter speeds can cause a moving subject to appear unnaturally frozen. ... 1⁄8000 s ... Used to take sharp photographs of very fast subjects, such as birds or planes, under good lighting conditions, with an ISO speed of 1,000 or more and a large-aperture lens. 1⁄4000 s ... fast subjects, such as athletes or vehicles ... 1⁄2000 s and 1⁄1000 s: ... moderately fast subjects under normal lighting conditions. 1⁄500 s and 1⁄250 s: ... people in motion ... 1⁄125 s: This speed, and slower ones, are no longer useful for freezing motion.
 
 ## g03 — What is the rule of thirds?
-**Source:** `data/technique-composition-rule-of-thirds.txt`. The GRID 9 sentence was later REMOVED from the reference (Dragan's call, 2026-07-10): a general concept reference must not require retrieval from one arbitrary manual — context recall would penalize runs that didn't fetch X100V pages for a question that never asked about the X100V. GRID 9 remains verified (p. 212, excerpt below) if a dedicated cross-source question is ever added.
+**Source:** `data/technique-composition-rule-of-thirds.txt`. The GRID 9 sentence was later REMOVED from the reference (decided 2026-07-10): a general concept reference must not require retrieval from one arbitrary manual — context recall would penalize runs that didn't fetch X100V pages for a question that never asked about the X100V. GRID 9 remains verified (p. 212, excerpt below) if a dedicated cross-source question is ever added.
 
 > The guideline proposes that an image should be imagined as divided into nine equal parts by two equally spaced horizontal lines and two equally spaced vertical lines, and that important compositional elements should be placed along these lines or their intersections. The theory is that aligning a subject with these points creates more tension, energy and interest in the composition than simply centering the subject. ... placing the horizon on the top or bottom line ... line the body up to a vertical line and the person's eyes to a horizontal line. ... The expression "rule of thirds" was first written down by John Thomas Smith in 1797.
 

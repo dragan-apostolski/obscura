@@ -1,64 +1,154 @@
-# Photo RAG Assistant
+# Camera Store Assistant
 
-An agentic RAG assistant over photography/videography gear manuals + technique guides —
-retrieval-augmented, **evaluated**, and **observable**. Week-1 flagship of the AI-engineering
-learning program (see `../PROGRAM.md`).
+An agentic RAG backend for a camera retailer. A ReAct agent answers customer questions by
+routing between a 65-product catalog and a corpus of 65 official camera manuals plus
+photography technique guides — then grounds every answer in what it retrieved.
 
-> Status: **scaffold**. Each lesson fills in a slice. TODO markers below map to the program.
+Built as a working system rather than a demo: hybrid retrieval with a reranker, a
+three-layer evaluation suite, and full request tracing.
 
-## Stack
-| Layer | Choice |
-|-------|--------|
-| API | FastAPI |
-| Agent | LangGraph |
-| Vector store | pgvector on Supabase (Postgres) |
-| Embeddings | OpenAI `text-embedding-3-small` (1536-dim) — swappable |
-| Generation | Claude (Anthropic) |
-| Evals | Ragas + DeepEval |
-| Observability | Langfuse |
-| Deploy | Render / HF Spaces + thin Next.js UI |
+```
+Customer: "Do you have the a7 IV in stock, and how do I change its ISO?"
 
-## Build order (maps to lessons)
-- [ ] **L01** — ingestion: load → chunk → embed → store (`app/ingest.py`, `sql/001_init.sql`)
-- [ ] **L02** — vector search + `/search` endpoint (`app/retrieval.py`)
-- [ ] **L03** — hybrid search + reranker + naive `/ask`
-- [ ] **L04–05** — LangGraph agent + tools (`app/agent.py`)
-- [ ] **L06–07** — golden set + Ragas/DeepEval (`evals/`)
-- [ ] **L08** — Langfuse tracing
-- [ ] **L09–10** — deploy + Next.js UI + showcase
+→ search_products("a7 IV")     → sony-a7-iv | Sony a7 IV | … | in stock | manual: yes
+→ search_manual("change ISO sensitivity", "sony-a7-iv")
+→ answer, citing the manual section it used
+```
+
+## How it works
+
+```
+data/  →  ingest  →  chunks (pgvector)
+                         ↓
+              hybrid retrieve — vector + keyword, fused with RRF
+                         ↓
+                    cross-encoder rerank
+                         ↓
+                   ReAct agent (Claude)
+                   tools: search_products, get_product_info,
+                          search_manual, explain_technique
+                         ↓
+                      POST /ask
+```
+
+**Retrieval.** Two arms run in one SQL statement — pgvector cosine similarity and Postgres
+full-text search — merged by Reciprocal Rank Fusion. Metadata filters (`product`, `doc_type`)
+are pushed into *both* arms, so a question about one camera can never surface another
+camera's manual. A cross-encoder then re-scores the candidate pool.
+
+**Chunking.** PDF manuals with a usable table of contents are split along it, and each chunk
+is prefixed with its heading path (`[nikon-z6-ii manual — Menu Guide > The Photo Shooting
+Menu: Shooting Options > Time-Lapse Movie]`). The section's topic therefore enters both the
+embedding and the keyword index even when the body text never uses the user's vocabulary.
+
+**The agent.** Tool selection is the model's job, not a hand-wired graph. That makes the tool
+docstrings the real control surface — they are treated as prompt engineering and are
+regression-tested (see below for why).
+
+## Evaluation
+
+A 27-row golden set drives three layers, each isolating a different failure mode:
+
+| Layer | Measures | Method |
+|-------|----------|--------|
+| Retrieval | Did the right chunk come back? | context precision/recall, judged |
+| Trajectory | Did the agent call the right tools? | deterministic asserts + judged asserts |
+| Answer | Is the answer faithful and relevant? | Ragas, with a cross-model judge |
+
+Layers are separated because a good answer over bad retrieval and a bad answer over good
+retrieval are different bugs with different fixes — a single end-to-end score hides both.
+References are written from the source documents, never copied from an agent answer, so the
+set cannot silently grade the system against itself.
+
+`evals/SCORECARD.md` is the running before/after history. Two findings from it worth calling
+out, both caught by the harness rather than by eye:
+
+- **A tool docstring's example list was read as an allowlist.** Concept questions whose
+  keyword appeared literally in `explain_technique`'s topic list triggered retrieval; ones
+  that didn't were answered from the model's own knowledge — faithfulness 0.00 behind
+  correct-sounding text. The trailing ellipsis meant nothing. Fixed by replacing the
+  enumeration with a scope statement that marks its examples as non-exhaustive.
+- **A latent bug that only one model exposed.** `/ask` occasionally returned an empty answer,
+  because the reply was written *alongside* the tool call and the final turn was empty. The
+  code read the last message blindly. One model never hit it; another hit it in 13 of 30
+  traces.
+
+Swapping the generation model to Claude Haiku 4.5 cut median request latency from 12.6s to
+4.6s while trajectory asserts went from 15/17 to 15/15 — latency measured from trace data,
+not vendor figures. Full reasoning, including the regressions the swap caused and the
+caveats on the comparison, is in the scorecard.
 
 ## Setup
+
+Requires Python ≥ 3.11, [uv](https://docs.astral.sh/uv/), and a Postgres database with
+pgvector (Supabase works out of the box).
+
 ```bash
-# 1. Install uv if needed:  https://docs.astral.sh/uv/
 uv sync
+cp .env.example .env          # DATABASE_URL, ANTHROPIC_API_KEY
 
-# 2. Copy env and fill in keys
-cp .env.example .env
+# Schema, in order
+psql "$DATABASE_URL" -f sql/001_init.sql
+psql "$DATABASE_URL" -f sql/002_keyword_search.sql
+psql "$DATABASE_URL" -f sql/003_product_catalog.sql
 
-# 3. Create a Supabase project, then run the init SQL (SQL editor or psql):
-#    sql/001_init.sql   (enables pgvector + creates the chunks table)
-
-# 4. Drop 2–3 source docs into ./data/ (one manual PDF + one technique article)
-
-# 5. Ingest (L01)
+# Add source documents to ./data, then
 uv run python -m app.ingest
-
-# 6. Run the API
 uv run uvicorn app.main:app --reload
 ```
 
+Embeddings (`bge-small-en-v1.5`) and reranking (`bge-reranker-large`) run locally — no
+embedding API key, no per-query retrieval cost. Only generation and the eval judge call out.
+
+```bash
+curl -X POST localhost:8000/ask -H 'content-type: application/json' \
+  -d '{"query": "Does the Nikon Z8 have IBIS?"}'
+```
+
+### Running the evals
+
+```bash
+uv run python -m evals.retrieval_eval          # retriever only — no agent in the loop
+uv run python -m evals.run_eval --skip-ragas   # + trajectory asserts
+uv run python -m evals.run_eval                # full run, including the judge
+uv run python -m evals.run_eval --from-runs    # rescore cached runs
+```
+
+Results land in `evals/results/<timestamp>-*.md`.
+
 ## Layout
+
 ```
 app/
-  config.py      settings (keys, model names) via pydantic-settings
-  db.py          Postgres/pgvector connection + helpers
-  chunking.py    text → chunks
-  embeddings.py  text → vectors
-  ingest.py      L01 pipeline: load → chunk → embed → store
-  retrieval.py   L02+ retrieve(query) → chunks
-  agent.py       L04+ LangGraph agent (placeholder)
-  main.py        FastAPI app + endpoints
-sql/001_init.sql schema + pgvector index
-data/            source documents (gitignored)
-evals/           golden set + eval runners (L06+)
+  config.py            settings — keys, model names, chunk sizes
+  db.py                psycopg 3 + pgvector
+  chunking.py          token-aware splits
+  embeddings.py        local sentence-transformers
+  textclean.py         repairs PDF extraction artifacts
+  ingest.py            load → chunk → embed → store
+  retrieval.py         vector + hybrid search
+  rerank.py            cross-encoder rerank
+  tools.py             agent tools — docstrings carry the routing rules
+  agent.py             the ReAct agent
+  main.py              FastAPI endpoints
+sql/                   schema migrations
+catalog/               product seed data
+evals/                 golden set, harnesses, scorecard, run history
 ```
+
+## Stack
+
+FastAPI · LangChain / LangGraph · Postgres + pgvector · sentence-transformers ·
+Claude · Ragas · Langfuse
+
+## Known limitations
+
+- The reranker mis-scores some rows — off-topic chunks occasionally outrank the right ones
+  (`g02`, `g09`).
+- Stabilisation questions are answered from a manual's specification tables rather than its
+  dedicated feature section, which still doesn't rank. Correct answers, thinner grounding.
+- Tool selection is probabilistic. A docstring shapes how likely a call is; it does not
+  guarantee one. Making retrieval deterministic for a class of question needs a system-prompt
+  rule, not a better description.
+- The catalog is synthetic and contains one deliberate inconsistency (Nikon Z6 II video
+  specs), kept as an eval fixture.

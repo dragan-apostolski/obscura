@@ -1,7 +1,8 @@
 """Text → chunks.
 
-Goal: token-aware fixed-size chunks (~400 tokens, ~50 overlap) using tiktoken.
-Start fixed-size; we revisit semantic chunking in the evals lesson.
+Token-aware fixed-size chunks (~400 tokens, ~50 overlap) via tiktoken. Sizes come from
+settings. PDF manuals with a usable table of contents get section-aware chunks instead —
+see `chunk_document` in `app/ingest.py`.
 """
 import tiktoken
 

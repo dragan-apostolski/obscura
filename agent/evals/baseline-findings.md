@@ -1,6 +1,6 @@
-# L06 baseline findings → L07 action plan
+# Golden-set baseline findings → action plan
 
-Source: `l06-ragas-baseline.md` + `l06-runs.json` (2026-07-10, 27 golden rows, all `store` agent, Gemini judge).
+Source: `ragas-baseline.md` + its runs dump (2026-07-10, 27 golden rows, all `store` agent, Gemini judge).
 
 ## Baseline headline
 
@@ -121,12 +121,12 @@ Agent called `get_product_info("a7 IV")` / `"Z6 II"` (wrong slugs) → error con
 
 ---
 
-## Done since L06 baseline
+## Done since the baseline
 
 - Golden set: all rows `agent: store`; dropped duplicate refusal rows g13/g25.
 - Fujifilm added to catalog + prompt; g21 flipped to positive assert.
 - Harness: regex asserts (g22), hardened `norm()`, parallel `ask_batch` (concurrency 3), per-item timeout, Gemini judge, `--from-runs`.
-- Agent rename: `app/agent.py` = main store agent; `app/manual_rag_agent.py` = deprecated L04 graph.
+- Agent rename: `app/agent.py` = main store agent; `app/manual_rag_agent.py` = the deprecated hand-wired graph.
 
 ---
 

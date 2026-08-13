@@ -1,7 +1,7 @@
 # Eval scorecard — running history
 
 One entry per eval milestone. Individual runs land in `results/<stamp>-{retrieval,e2e}.{md,json}`;
-this file is the curated before/after story — pull straight from here for the L10 showcase.
+this file is the curated before/after story — pull straight from here when writing up results.
 
 ---
 
@@ -152,8 +152,8 @@ set (only rows with a `retrieval` scope) before swapping anything.
 | g06 (X100V white balance) | 0.75 / 1.00 | 0.45 / 1.00 | −0.30 precision |
 | g01, g04, g05, g07, g08 | — | flat | |
 
-**On the two regressions:** checked the actual retrieved chunks (`results/2026-07-27_1302-retrieval.json`
-vs `2026-07-23_1153-retrieval.json`). Both are tail-end reordering, not lost signal — g03's
+**On the two regressions:** checked the actual retrieved chunks (`results/2026-07-27_1302-retrieval.md`
+vs `2026-07-23_1153-retrieval.md`). Both are tail-end reordering, not lost signal — g03's
 correct chunk is still rank 1 (0.999→0.993), the precision hit comes from near-zero-relevance
 chunks at ranks 3-5 swapping order; g06's correct chunk drops rank 1→2 but stays in the top-5
 (recall unchanged at 1.00 for both). Neither would change the agent's actual answer.
@@ -203,7 +203,7 @@ on saved (query, chunk) pairs first. Run: `results/2026-07-23_1153-retrieval.*`.
 
 ## 3-layer baseline — 2026-07-22
 
-First baseline on the restructured pipeline; not comparable to the L06 entry below
+First baseline on the restructured pipeline; not comparable to the 2026-07-10 entry below
 (precision/recall there were measured through agent transcripts — bundled contexts,
 routing noise — and are structurally overstated/understated per row). Golden set:
 28 rows. Judge: `gemini-2.5-flash`.
@@ -222,7 +222,7 @@ only menu-listing noise), **g09 0.00 precision** (film-sim; new finding).
 
 **Layer 2 — trajectory** (asserts): 15/17 PASS. g14 REVIEW (refusal marker wording),
 g20 FAIL (no clarify question on "my photos look blurry") — both are the flaky
-marker-list asserts flagged at L06; candidates for judged asserts (`answer_must_affirm`
+marker-list asserts flagged in the 2026-07-10 baseline; candidates for judged asserts (`answer_must_affirm`
 pattern). New passes: g23 reaches the manual + affirms IBIS, g30 answers from catalog
 specs, g06 no wasted wrong-slug call.
 
@@ -242,7 +242,7 @@ free layer-1 loop), g09 precision, then g14/g20 assert hardening.
 
 ---
 
-## L06 clean baseline — 2026-07-10
+## Clean golden-set baseline — 2026-07-10
 
 Golden set: 29 rows (`golden.jsonl`), store agent, judge = `gemini-2.5-flash` (cross-model vs
 the Claude generator). Harness fixed to score Ragas only against genuine retrieval evidence
@@ -259,7 +259,7 @@ correct there, not a relevancy miss).
 
 Assert rows (routing / ambiguous / refusal): **13/13 PASS**.
 
-**Weakest points, in order — these are the L07 targets:**
+**Weakest points, in order — these are the next targets:**
 1. sparse-data context precision (0.38) — grounding evidence for "what does the catalog know"
    questions is thin/noisy.
 2. sparse-data faithfulness (0.70) — some inference beyond tool output still slips through.
@@ -267,4 +267,4 @@ Assert rows (routing / ambiguous / refusal): **13/13 PASS**.
    some irrelevant passages alongside the right one.
 4. cross-section context recall (0.75) — right manual, but not all needed sections retrieved.
 
-Full per-row detail: `l06-ragas-baseline.md`. Root-cause analysis: `l06-findings-and-action-points.md`.
+Full per-row detail: `ragas-baseline.md`. Root-cause analysis: `baseline-findings.md`.

@@ -1,4 +1,4 @@
--- L05 — product catalog + chunk metadata. Run in Supabase after reviewing catalog/products.json.
+-- 003 — product catalog + chunk metadata. Run after 002; review catalog/products.json first.
 
 -- 1. Store catalog. slug is the business key — it's what tools accept and chunks.product references.
 create table if not exists products (
@@ -25,7 +25,7 @@ alter table chunks add column if not exists doc_type text;   -- 'manual' | 'tech
 alter table chunks add column if not exists brand    text;
 alter table chunks add column if not exists product  text;   -- FK-by-convention to products.slug
 
--- 3. Backfill the existing corpus (sources known from L01).
+-- 3. Backfill metadata onto corpus rows ingested before these columns existed.
 update chunks set doc_type = 'manual',    brand = 'Fujifilm', product = 'fujifilm-x100v'
     where source = 'fujifilm-x100v-manual.pdf';
 update chunks set doc_type = 'manual',    brand = 'Canon',    product = 'canon-eos-r5'

@@ -1,8 +1,10 @@
 """Ingestion pipeline: load → chunk → embed → store.
 
-Run:  uv run python -m app.ingest
 Reads everything from ./data (PDFs + .html/.txt), chunks, embeds, inserts into `chunks`.
-You wire the TODOs during Lesson 01.
+Re-runnable: each source's existing rows are deleted before its new ones are inserted.
+
+    uv run python -m app.ingest                       # everything
+    uv run python -m app.ingest nikon-z8-manual.pdf   # one file
 """
 from pathlib import Path
 
@@ -163,7 +165,7 @@ def ingest(only: set[str] | None = None) -> None:
     for path in files:
         meta = file_metadata(path)
         chunks = chunk_document(path, meta)
-        vectors = embed(chunks)                         # batches to the embedding API
+        vectors = embed(chunks)                         # local model, batched
         rows = [
             {"source": path.name, "content": c, "token_count": count_tokens(c), "embedding": v, **meta}
             for c, v in zip(chunks, vectors)

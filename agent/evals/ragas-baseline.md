@@ -1,4 +1,4 @@
-# L06 — golden-set baseline
+# Golden-set baseline — Ragas
 
 Judge: `gemini-2.5-flash` via Gemini's OpenAI-compatible endpoint (cross-model — generator is `claude-sonnet-5`, so no self-preference bias). Embeddings: local bge-small. Golden set: `golden.jsonl` (29 rows, all run through the store agent).
 

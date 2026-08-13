@@ -15,15 +15,13 @@ dependencies = [
     "pypdf>=5.1", # load PDF manuals
     "beautifulsoup4>=4.12", # parse technique HTML/articles
     "tiktoken>=0.8", # token-aware chunking
-    # added in later lessons:
-    # "langgraph"  (L04)  "ragas" "deepeval"  (L06)
     "langgraph>=1.2.8",
     "langchain>=1.3.12",
     "langchain-anthropic>=1.4.8",
     "ragas>=0.4.3",
     "pymupdf>=1.28.0",
     "pyspellchecker>=0.9.0",
-    "langfuse>=4.14.2", # tracing (L08)
+    "langfuse>=4.14.2", # tracing
 ]
 
 [dependency-groups]

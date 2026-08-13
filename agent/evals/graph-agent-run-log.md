@@ -1,6 +1,6 @@
-# L04 agent log — same 9 baseline questions + 2 traps, through the LangGraph agent
+# Graph-agent run log — the 9 baseline questions + 2 traps, through the LangGraph agent
 
-Follow-up to [l03-baseline.md](l03-baseline.md). Same questions, but now measuring the full
+Follow-up to [retrieval-baseline.md](retrieval-baseline.md). Same questions, but now measuring the full
 agent (`retrieve → grade → answer`, rewrite loop capped at 1) — including the **answer**, not
 just which source ranked first.
 
@@ -31,20 +31,20 @@ just which source ranked first.
   went straight through — zero wasted rewrites.
 - **New failure class found: right source, wrong section.** The film-simulation question scored
   0.77 and retrieved the X100V manual — but not the film-simulation pages, so the answer was
-  IDK. L03's source-level metric called this a *hit*; measuring answers reveals it as a miss.
-  This is exactly why L06 evals grade answers, not sources.
+  IDK. The source-level retrieval metric called this a *hit*; measuring answers reveals it as a miss.
+  This is exactly why the golden-set evals grade answers, not sources.
 - The grade threshold (0.2) can't catch this failure: the score says "relevant chunks found,"
-  which is true — they're just not the *answering* chunks. Candidate fixes for L07: contextual
+  which is true — they're just not the *answering* chunks. Candidate fixes: contextual
   embeddings (already the prime hypothesis), or an LLM-based relevance grader instead of the
   reranker-score heuristic.
 
 ## Caveats
 
-- Answer correctness judged by eye, n=11 — directional. Ragas (L06) makes this rigorous.
-- Same corpus, same retrieval stack as L03 — the only new variable is the agent layer.
+- Answer correctness judged by eye, n=11 — directional. Ragas makes this rigorous.
+- Same corpus, same retrieval stack as the baseline probe — the only new variable is the agent layer.
 - Grounding verdicts below = manual comparison of each answer against the retrieved chunk
   texts (checked post-hoc via `retrieve_node`). A human LLM-judge preview of what Ragas
-  Faithfulness automates in L06.
+  Faithfulness automates with Ragas.
 
 ---
 
@@ -121,7 +121,7 @@ including the ISO 12232 revision years (1998/2006/2019) which appear verbatim in
 
 **Verdict:** the best result of the run. The **top-scoring chunk (0.94) was the Canon decoy**,
 yet the answer is 100% X100V (k/l/m slots, COMPLETED/UNDER/OVER are Fuji-manual specifics).
-The generation model used the source labels to pick the right manual — the L02/L03 "wrong
+The generation model used the source labels to pick the right manual — the earlier "wrong
 camera" retrieval weakness got corrected at the answer layer.
 
 ### 7. How do I use film simulation modes on the X100V? — ❌ miss (honest)
@@ -129,7 +129,7 @@ camera" retrieval weakness got corrected at the answer layer.
 
 **Verdict:** correct refusal, wrong outcome. Chunks came from the right manual but the wrong
 sections (mode P setup, Canon screen-info pages). The manual *does* cover film simulation —
-retrieval never surfaced it. The run's one real failure; the golden-set case for L06/L07.
+retrieval never surfaced it. The run's one real failure, and the reason it became a golden-set row.
 
 ### 8. How do I set custom white balance on the Canon EOS R5? — ✅ grounded, right camera
 > To set custom white balance on the Canon EOS R5:
@@ -184,5 +184,5 @@ the refusal came from the answer node's prompt. Two layers, each doing its job.
 **Verdict:** grounded, but exposes a design gap — the user never said which camera. The X100V
 framing came purely from which chunk happened to rank top; the *right* behavior would be to ask
 "which camera?". The current graph has no clarify path (it can only retrieve → answer). Known
-limitation; a router/clarify node is L05 material.
+limitation; a router/clarify node is the fix.
 

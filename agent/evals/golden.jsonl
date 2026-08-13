@@ -130,7 +130,7 @@
   "reference": "FILM SIMULATION is in the shooting menu (image quality settings): simulate the effects of different films, including black-and-white with or without color filters. Options: PROVIA/STANDARD (wide range of subjects), Velvia/VIVID (landscape/nature), ASTIA/SOFT (subdued), CLASSIC CHROME (soft color, enhanced shadow contrast), PRO Neg. Hi and PRO Neg. Std (portrait), CLASSIC Neg., ETERNA/CINEMA (film-look movies), plus ACROS and MONOCHROME (with Ye/R/G filters) and SEPIA. Film simulation bracketing can shoot three simulations at once; a separate F FILM SIMULATION setting applies to movie recording.",
   "reference_verified": true,
   "expect": null,
-  "notes": "THE right-source-wrong-section case (l04 Q7 failed with IDK). Verified against X100V manual p.106/142/157. Low context recall expected at baseline — this is the L07 target"
+  "notes": "THE right-source-wrong-section case (the graph agent answered IDK). Verified against X100V manual p.106/142/157. Low context recall expected at baseline — a known target"
 }
 {
   "id": "g10",
@@ -205,7 +205,7 @@
     ],
     "answer_must_contain_tool_data": true
   },
-  "notes": "l05 Q1. Assert answer price/stock matches the tool output (not a hardcoded €2,049 — catalog is volatile)."
+  "notes": "Assert answer price/stock matches the tool output (not a hardcoded €2,049 — catalog is volatile)."
 }
 {
   "id": "g16",
@@ -224,7 +224,7 @@
       "in_stock_only": true
     }
   },
-  "notes": "l05 Q8 — facet routing"
+  "notes": "facet routing"
 }
 {
   "id": "g17",
@@ -242,7 +242,7 @@
       "type": "cinema"
     }
   },
-  "notes": "l05 Q6 / F6 — tool has no price filter; agent must filter client-side. Optionally assert every listed price < 5000."
+  "notes": "F6 — tool has no price filter; agent must filter client-side. Optionally assert every listed price < 5000."
 }
 {
   "id": "g18",
@@ -258,7 +258,7 @@
     ],
     "max_tool_calls": 1
   },
-  "notes": "l05 Q3 — technique routing with a cost bound"
+  "notes": "technique routing with a cost bound"
 }
 {
   "id": "g19",
@@ -274,7 +274,7 @@
       "search_manual"
     ]
   },
-  "notes": "l04 Q11 gap, closed in L05 (Q4). Clarify BEFORE any manual search — no guessing."
+  "notes": "Ambiguity gap found in the graph-agent run, closed by the store agent. Clarify BEFORE any manual search — no guessing."
 }
 {
   "id": "g20",
@@ -287,7 +287,7 @@
   "expect": {
     "must_clarify": true
   },
-  "notes": "Second ambiguous probe (l04 Q11 verbatim). General blur advice without naming a camera is acceptable IF it asks which camera before giving model-specific steps — the assert is on clarifying, review manually first run."
+  "notes": "Second ambiguous probe (repeat of the graph-agent ambiguity case). General blur advice without naming a camera is acceptable IF it asks which camera before giving model-specific steps — the assert is on clarifying, review manually first run."
 }
 {
   "id": "g21",
@@ -347,7 +347,7 @@
     ],
     "answer_must_affirm": "the Nikon Z8 has in-body image stabilization"
   },
-  "notes": "Recategorized from sparse-data after full manual coverage (was L06's 'no manual on file' case; nikon-z8-manual.pdf now ingested). Reference source-verified against manual pp.492-493 (Vibration Reduction menu) and ~p.1001 (VR spec table: 5-axis image sensor shift). PREMISE: nikon-z8 catalog specs lack image_stabilization (checked 2026-07-22), so the correct path must reach the manual — re-audit tools_any if Z8 specs gain that field. Pair row: g30 (spec present in catalog)."
+  "notes": "Recategorized from sparse-data after full manual coverage (was the 'no manual on file' case; nikon-z8-manual.pdf now ingested). Reference source-verified against manual pp.492-493 (Vibration Reduction menu) and ~p.1001 (VR spec table: 5-axis image sensor shift). PREMISE: nikon-z8 catalog specs lack image_stabilization (checked 2026-07-22), so the correct path must reach the manual — re-audit tools_any if Z8 specs gain that field. Pair row: g30 (spec present in catalog)."
 }
 {
   "id": "g24",
@@ -377,7 +377,7 @@
       "no manual access"
     ]
   },
-  "notes": "F3 DECIDED (2026-07-10): manuals exist independently of the catalog — agent should call search_manual(x100v) and answer grounded (answer quality is covered by g09 on manual_rag; this row tests the routing). EXPECTED TO FAIL at baseline: l05 Q10 showed the agent refuses via the brand line. The fix is a store_agent prompt/docstring change (tell it manual coverage ≠ catalog) — an eval-driven-iteration row for L07."
+  "notes": "F3 DECIDED (2026-07-10): manuals exist independently of the catalog — agent should call search_manual(x100v) and answer grounded (answer quality is covered by g09 on manual_rag; this row tests the routing). EXPECTED TO FAIL at baseline: an earlier store-agent run showed the agent refuses via the brand line. The fix is a prompt/docstring change (tell it manual coverage ≠ catalog) — an eval-driven-iteration row."
 }
 {
   "id": "g27",
@@ -394,7 +394,7 @@
       "DSLR"
     ]
   },
-  "notes": "Catalog-knowledge probe. Ground truth from catalog/products.json 2026-07-10: mirrorless 52, cinema 8, DSLR 3. Path deliberately unconstrained: answering from the prompt/enum vocabulary with zero tool calls (observed in L05) and calling search_products are both valid — assert content, not route. Match case-insensitively in the harness."
+  "notes": "Catalog-knowledge probe. Ground truth from catalog/products.json 2026-07-10: mirrorless 52, cinema 8, DSLR 3. Path deliberately unconstrained: answering from the prompt/enum vocabulary with zero tool calls (observed in earlier runs) and calling search_products are both valid — assert content, not route. Match case-insensitively in the harness."
 }
 {
   "id": "g28",
@@ -431,5 +431,5 @@
       "brand": "Sony"
     }
   },
-  "notes": "Roster question — the inverse of g27/g28: the product roster is deliberately NOT in the prompt (L05 scaling decision), so a correct answer REQUIRES search_products(brand=Sony). 20 Sony products as of 2026-07-10. No assert on listing all 20 names — grouping/summarizing is good UX; review the first run manually for invented models (F5-adjacent risk)."
+  "notes": "Roster question — the inverse of g27/g28: the product roster is deliberately NOT in the prompt (a deliberate scaling decision), so a correct answer REQUIRES search_products(brand=Sony). 20 Sony products as of 2026-07-10. No assert on listing all 20 names — grouping/summarizing is good UX; review the first run manually for invented models (F5-adjacent risk)."
 }

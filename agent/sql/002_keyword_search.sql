@@ -1,4 +1,4 @@
--- L03 — keyword search for hybrid retrieval. Run once in Supabase.
+-- 002 — keyword search for hybrid retrieval. Run after 001.
 
 -- 1. Generated tsvector column: Postgres keeps it in sync with `content`.
 alter table chunks
