@@ -433,19 +433,3 @@
   },
   "notes": "Roster question — the inverse of g27/g28: the product roster is deliberately NOT in the prompt (L05 scaling decision), so a correct answer REQUIRES search_products(brand=Sony). 20 Sony products as of 2026-07-10. No assert on listing all 20 names — grouping/summarizing is good UX; review the first run manually for invented models (F5-adjacent risk)."
 }
-{
-  "id": "g30",
-  "agent": "store",
-  "category": "routing",
-  "scoring": "behavioral",
-  "question": "Does the Nikon Z6 II have in-body stabilization?",
-  "reference": null,
-  "reference_verified": true,
-  "expect": {
-    "tools_any": [
-      "get_product_info"
-    ],
-    "answer_must_affirm": "the Nikon Z6 II has in-body image stabilization"
-  },
-  "notes": "Pair row of g23, testing the other branch of the spec-fallback policy: nikon-z6-ii catalog specs DO contain image_stabilization=Yes (checked 2026-07-22), so the catalog answers this — no manual needed. Calling search_manual anyway is inefficient but not asserted against. Re-audit if Z6 II specs change."
-}

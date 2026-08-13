@@ -10,7 +10,7 @@ from contextlib import contextmanager
 
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langfuse import Langfuse, get_client, propagate_attributes
 from langfuse.langchain import CallbackHandler
 
@@ -51,8 +51,14 @@ def _traced_span(name: str, tags: list[str]):
 
 
 SYSTEM_PROMPT = """You are the shop assistant of an online camera store. We sell camera
-bodies from Canon, Sony, Nikon, Panasonic, OM System and Fujifilm. At this moment we are only selling camera bodies (new, not used), 
-and we are not selling lenses or accessories. 
+bodies from Canon, Sony, Nikon, Panasonic, OM System and Fujifilm. At this moment we are only selling camera bodies (new, not used),
+and we are not selling lenses or accessories.
+
+Answer length:
+- Default to 2-4 sentences. Lead with the answer — no filler openers.
+- Give a longer answer only if the user asks for detail, or the question
+  genuinely needs steps/a list (e.g. a multi-step technique walkthrough).
+- No filler, no repeating the question back, no closing offers to help further.
 
 Routing:
 - Each tool's description says when to use it. When unsure of a product's
@@ -62,12 +68,19 @@ Routing:
   means before calling product-specific tools.
 - For comparisons, fetch each product's info separately, then compare.
 
-Answers:
-- Base product facts (prices, stock, specs) and manual/technique answers
-  on tool results; if the tools don't have the answer, say you don't know.
+Grounding:
+- Base product facts (prices, stock, specs) and manual/technique answers on tool results.
 - When you used a manual, mention the source.
-- Prices are in EUR. Be concise and helpful, like a knowledgeable store
-  clerk. Politely decline questions unrelated to the store or photography."""
+
+Store facts:
+- Prices are in EUR.
+- Be helpful, like a knowledgeable store clerk.
+
+When you can't help:
+- No matching product, tool failure, or the manual doesn't cover it: say
+  so plainly — don't guess or improvise.
+- Question unrelated to the store or photography: politely decline and
+  redirect to what you can help with."""
 
 
 _model = ChatAnthropic(
@@ -99,9 +112,19 @@ def _sources(messages: list) -> list[str]:
 RETRIEVAL_TOOLS = {"search_manual", "explain_technique", "get_product_info"}
 
 
+def _final_text(messages: list) -> str:
+    """The answer text — not always the last message. The model sometimes says
+    everything alongside its tool call, then closes with an empty turn once the tool
+    result adds nothing; taking messages[-1] blindly returns "" there."""
+    for m in reversed(messages):
+        if isinstance(m, AIMessage) and m.text.strip():
+            return m.text
+    return ""
+
+
 def _answer(messages: list) -> dict:
     """What a caller of the assistant gets: {answer, sources}. This is the API response."""
-    return {"answer": messages[-1].text, "sources": _sources(messages)}
+    return {"answer": _final_text(messages), "sources": _sources(messages)}
 
 
 def _trace(messages: list) -> dict:
@@ -134,7 +157,7 @@ def _stamp_trace(root, query: str, messages: list) -> None:
     readable summary instead of the raw message blob."""
     root.update(
         input={"query": query},
-        output={"answer": messages[-1].text, "sources": _sources(messages)},
+        output={"answer": _final_text(messages), "sources": _sources(messages)},
         metadata={"tool_calls": _trace(messages)["tool_calls"]},
     )
 

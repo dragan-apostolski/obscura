@@ -50,10 +50,12 @@ def search_products(query: str | None = None, brand: str | None = None,
                     in_stock_only: bool = False) -> str:
     """Search the store's camera catalog. Returns matching products as compact rows:
     slug | name | price EUR | stock | whether a user manual is on file.
-    Use `query` with a product name to find a specific camera (e.g. "a7 IV");
-    use the filters to browse (brands: Canon, Sony, Nikon, Panasonic, OM System).
-    All arguments are optional and combine with AND. Prefer this tool first for any
-    question about what the store sells; use get_product_info for full details."""
+    `query` matches the product NAME only, every word as a substring — use names and
+    model numbers ("a7 IV", "EOS R5"), never descriptive phrases, which match nothing.
+    To browse a category, omit `query` and use the filters instead (brands: Canon,
+    Sony, Nikon, Panasonic, OM System, Fujifilm). All arguments are optional and
+    combine with AND. Prefer this tool first for any question about what the store
+    sells; use get_product_info for full details."""
     conds, params = [], []
     if query:
         for token in query.split():
