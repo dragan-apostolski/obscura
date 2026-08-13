@@ -5,6 +5,80 @@ this file is the curated before/after story — pull straight from here for the 
 
 ---
 
+## Generation model → Haiku 4.5, prompt + tool-description fixes — 2026-08-13
+
+**Changed:** generation model `claude-sonnet-5` → `claude-haiku-4-5` (1/3 the token cost,
+lower latency), system prompt restructured (explicit answer-length rule; the catch-all
+"Answers" block split into Grounding / Store facts / When you can't help), and two
+routing/robustness fixes found by the first Haiku run.
+
+**Two regressions surfaced by the model swap, both root-caused and fixed:**
+
+1. **Concept questions stopped retrieving.** g02 (shutter speed) and g03 (rule of thirds)
+   made *zero* tool calls and answered from parametric knowledge — faithfulness 0.00 with
+   no evidence behind correct-sounding text. Cause was the `explain_technique` docstring:
+   its topic list (`exposure, aperture, ISO, bokeh, composition, white balance, metering...`)
+   was being read as an **allowlist** despite the trailing ellipsis. The correlation was
+   exact — every question whose keyword appeared literally got the call, both that didn't,
+   didn't. Note "shutter speed" was missing from a list that already had exposure, aperture
+   and ISO. Corpus coverage was never the issue (`technique-shutter-speed.txt`,
+   `technique-composition-rule-of-thirds.txt` both exist). Fixed by replacing the
+   enumeration with a categorical scope statement that explicitly marks the examples as
+   non-exhaustive.
+
+2. **Empty API answers.** `/ask` returned `{"answer": ""}` when the model wrote its full
+   reply *alongside* the tool call and then closed with an empty turn once the tool result
+   added nothing. `_answer()` read `messages[-1].text` blindly. A latent bug since it was
+   written — Sonnet never left the last turn empty (0 of 14 traces), Haiku did (13 of 30
+   traces wrote text alongside a tool call). Fixed with `_final_text()`, which walks back to
+   the last AI turn that actually has text.
+
+**Delta — layer 3 (answer quality), Sonnet baseline (2026-07-22) → Haiku after fixes:**
+
+| slice | n | faithfulness | ans relevancy | |
+|---|---|---|---|---|
+| concept | 5 | 0.86 → **0.75** | 0.92 → 0.86 | down; see stochasticity note |
+| cross-section | 2 | 0.96 → **1.00** | 1.00 → 0.96 | |
+| entity | 6 | 0.85 → **0.85** | 0.99 → 0.97 | flat |
+| sparse-data | 1 | 0.71 → **0.87** | 0.96 → 0.94 | improved |
+
+**Layer 2 — trajectory asserts: 15/15 PASS** (Sonnet baseline: 15/17, with g14 REVIEW and
+g20 FAIL — both now pass). Routing, refusal and clarify behavior are unaffected by the swap.
+
+**Known caveat — retrieval routing is stochastic, not fixed.** The docstring fix raised
+concept-row retrieval from 3/5 to 4/5, but g05 ("What is ISO?") retrieved in two runs and
+skipped in a third, despite ISO being named in the new description. Haiku reaches for tools
+less readily than Sonnet; the description shapes the probability, it doesn't guarantee the
+call. If concept faithfulness must be deterministic, the lever is a system-prompt rule
+requiring retrieval for general-photography questions — not another description edit.
+
+**Cost and latency — the reason for the swap.** Latency measured from Langfuse trace metrics,
+not vendor claims:
+
+| | Sonnet 5 | Haiku 4.5 | |
+|---|---|---|---|
+| eval runs (concurrency 3) | 15.2 s median | **7.3 s** | 2.1× faster |
+| single requests | 12.6 s median | **4.6 s** | 2.8× faster |
+| price per MTok (in / out) | $3 / $15 | **$1 / $5** | 3× cheaper |
+
+Sonnet latency samples are small (n=8 and n=4, different question mixes) — the direction is
+solid, the exact multiples are approximate.
+
+**DECISION: staying on Haiku 4.5.** ~2.5× faster and 3× cheaper, trajectory asserts improved
+(15/17 → 15/15), and three of four quality slices flat-or-better. The concept-faithfulness dip
+is the accepted cost. It is a tool-triggering probability problem — Haiku reaches for
+`explain_technique` less reliably than Sonnet — not a reasoning deficit, and it is recoverable
+later with a system-prompt retrieval rule if it ever matters more than speed.
+
+**Caveat on the comparison:** the Sonnet baseline (2026-07-22) predates the section-aware
+chunking (07-23) and the reranker swap (07-27), so Haiku is measured with better retrieval
+underneath it than Sonnet had. The real quality gap is somewhat wider than the table shows.
+Re-baselining Sonnet on the current retrieval stack would settle it, at the cost of a full run.
+
+Runs: `results/2026-08-13_1254-e2e.md` (before fixes), `results/2026-08-13_1338-e2e.md` (after).
+
+---
+
 ## PDF text-extraction cleanup + TOC-coverage finding — 2026-07-27
 
 **Investigated:** whether garbled PDF text (found while looking at g09's retrieved chunks) was

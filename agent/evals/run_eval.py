@@ -365,7 +365,8 @@ async def main():
         from app.agent import ask_batch
         print(f"[run] {len(store_rows)} store questions (concurrency={AGENT_CONCURRENCY})...",
               flush=True)
-        outs = await ask_batch([g["question"] for g in store_rows], AGENT_CONCURRENCY)
+        outs = await ask_batch([g["question"] for g in store_rows], AGENT_CONCURRENCY,
+                               session_id=RUN_STAMP)
         store_out = {g["id"]: o for g, o in zip(store_rows, outs)}
 
     runs = []

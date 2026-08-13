@@ -146,9 +146,11 @@ def search_manual(query: str, product: str) -> tuple[str, list[dict]]:
 
 @tool(response_format="content_and_artifact")
 def explain_technique(query: str) -> tuple[str, list[dict]]:
-    """Search the store's photography technique guides (exposure, aperture, ISO,
-    bokeh, composition, white balance, metering...). Use for general photography
-    questions that are not about one specific camera's controls or menus."""
+    """Search the store's photography technique guides — exposure and the settings
+    behind it (aperture, shutter speed, ISO), composition, focus and depth of field,
+    metering, white balance. Those are examples, not a complete list: use this tool
+    for ANY general photography question that isn't about one specific camera's
+    controls or menus, including ones whose topic isn't named here."""
     chunks = rerank(query, hybrid_retrieve(query, k=20, doc_type="technique"), top_n=5)
     if not chunks:
         return f"No technique guide covers '{query}'.", []

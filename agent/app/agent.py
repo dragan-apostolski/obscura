@@ -38,15 +38,19 @@ class _NoOpSpan:
 
 
 @contextmanager
-def _traced_span(name: str, tags: list[str]):
+def _traced_span(name: str, tags: list[str], session_id: str | None = None):
     """Open a Langfuse root span, or a no-op stand-in if Langfuse isn't configured.
     Callers always get the same (span, callbacks, trace_id) shape either way, so they
-    never need to branch on whether tracing is on."""
+    never need to branch on whether tracing is on.
+
+    session_id groups every trace of one eval run under a single id, so runs can be
+    told apart and compared in Langfuse — without it each run is just an undifferentiated
+    batch of traces sharing the same tags."""
     if _langfuse is None:
         yield _NoOpSpan(), [], None
         return
     with _langfuse.start_as_current_observation(as_type="span", name=name) as root:
-        with propagate_attributes(tags=tags):
+        with propagate_attributes(tags=tags, session_id=session_id):
             yield root, [_langfuse_handler], _langfuse.get_current_trace_id()
 
 
@@ -188,9 +192,11 @@ def ask_traced(query: str) -> dict:
 
 
 async def ask_batch(queries: list[str], max_concurrency: int = 3,
-                    per_item_timeout: float = 150.0) -> list[dict]:
+                    per_item_timeout: float = 150.0,
+                    session_id: str | None = None) -> list[dict]:
     """Run questions concurrently, traced (this is the eval path). IO-bound on the
-    model API, so bounded by a semaphore.
+    model API, so bounded by a semaphore. Pass the run's stamp as session_id to group
+    its traces in Langfuse.
     Order preserved; a failed/timed-out run yields an error dict instead of aborting.
     Concurrency is kept low on purpose — too many parallel calls trip the API rate
     limit and the retry backoff ends up slower than sequential. per_item_timeout is a
@@ -204,7 +210,8 @@ async def ask_batch(queries: list[str], max_concurrency: int = 3,
         nonlocal done
         async with sem:
             try:
-                with _traced_span("ask", ["manual-rag-agent", "eval"]) as (root, callbacks, trace_id):
+                with _traced_span("ask", ["manual-rag-agent", "eval"],
+                                  session_id=session_id) as (root, callbacks, trace_id):
                     r = await asyncio.wait_for(
                         agent.ainvoke(
                             {"messages": [{"role": "user", "content": q}]},
