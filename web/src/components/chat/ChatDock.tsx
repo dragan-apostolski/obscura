@@ -114,17 +114,19 @@ export function ChatDock() {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const messagesRef = useRef<Message[]>([]);
-
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  // The agent keeps the conversation; we only need the key to it.
+  const threadIdRef = useRef<string | undefined>(undefined);
+  const inFlightRef = useRef(false);
 
   const send = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
+    // Two sends in flight on a first turn would each start their own thread, and only
+    // one id survives — the other conversation is orphaned server-side. The input is
+    // disabled while loading, but suggestion buttons and the chat bus can still fire.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     const userMsg: Message = { id: nextId(), role: "user", content: trimmed };
-    const history = [...messagesRef.current.filter((m) => !m.error), userMsg];
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
@@ -132,16 +134,16 @@ export function ChatDock() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: history.map(({ role, content }) => ({ role, content })),
-        }),
+        body: JSON.stringify({ message: trimmed, threadId: threadIdRef.current }),
       });
       const data: {
         answer?: string;
         sources?: string[];
+        threadId?: string;
         products?: ChatProduct[];
         error?: string;
       } = await res.json();
+      if (data.threadId) threadIdRef.current = data.threadId;
       if (!res.ok || data.error || !data.answer) {
         setMessages((prev) => [
           ...prev,
@@ -176,6 +178,7 @@ export function ChatDock() {
       ]);
     } finally {
       setLoading(false);
+      inFlightRef.current = false;
     }
   }, []);
 

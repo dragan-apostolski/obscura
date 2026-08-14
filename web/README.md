@@ -24,8 +24,8 @@ Set `AGENT_API_URL` if the agent is not on `http://127.0.0.1:8000`.
 
 The browser never talks to the agent directly. `src/app/api/chat/route.ts` proxies server-side:
 
-- **History folding** — the agent endpoint is stateless, so the transcript is replayed into a
-  single query string on every turn (`buildQuery`).
+- **Thread continuity** — only the new message is sent, with a `threadId`. The agent holds
+  the conversation; the first turn omits the id and adopts whichever one comes back.
 - **Product matching** — `src/lib/match-products.ts` scans the answer text and the agent's
   reported tool calls, and attaches preview cards for any catalog product mentioned.
 - **Failure handling** — upstream errors and timeouts become a friendly message, never a

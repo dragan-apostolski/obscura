@@ -22,12 +22,16 @@ Next.js App Router · Tailwind v4 · Framer Motion · TypeScript.
 The site never talks to the agent directly from the browser. `src/app/api/chat/route.ts` is a
 server-side proxy that:
 
-1. Folds the chat transcript into a single query string — **the agent endpoint is stateless**,
-   so multi-turn context has to be replayed in the prompt on every turn (`buildQuery`).
+1. Sends `{message, threadId}` — one message, not a transcript. Conversation state lives
+   in the agent, keyed by thread id; the first turn omits the id and adopts the one the
+   response carries. Ids are server-issued UUID4s and the API rejects anything else.
 2. `POST`s to `${AGENT_API_URL}/ask` with a 120s timeout.
 3. Runs `matchProducts()` (`src/lib/match-products.ts`) over the answer text and the agent's
    `tool_calls` to attach product preview cards.
 4. Maps agent failures to a friendly `502` — never leaks the upstream error.
+
+The agent also exposes `POST /ask/stream` (server-sent events). The dock does not use it
+yet — it waits for the whole answer.
 
 Key files:
 

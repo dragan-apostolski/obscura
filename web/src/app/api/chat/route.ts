@@ -4,41 +4,32 @@ import { matchProducts, ToolCall } from "@/lib/match-products";
 
 const AGENT_API_URL = process.env.AGENT_API_URL ?? "http://127.0.0.1:8000";
 
-export type ChatTurn = { role: "user" | "assistant"; content: string };
-
 export type ChatResponse = {
   answer: string;
   sources: string[];
+  threadId: string;
   products: Array<ReturnType<typeof toSummary> & { image: string }>;
 };
 
-/** The FastAPI agent takes a single query string, so multi-turn context is
- *  folded into the prompt as a transcript. */
-function buildQuery(messages: ChatTurn[]): string {
-  const last = messages[messages.length - 1];
-  if (messages.length === 1) return last.content;
-  const history = messages
-    .slice(0, -1)
-    .map((m) => `${m.role === "user" ? "Customer" : "You (clerk)"}: ${m.content}`)
-    .join("\n");
-  return `Earlier in this conversation:\n${history}\n\nThe customer now asks: ${last.content}`;
-}
-
+/** Conversation state lives in the agent, keyed by thread id — only the new message
+ *  travels. A first turn omits the id and adopts whichever one the agent returns. */
 export async function POST(req: NextRequest) {
-  let messages: ChatTurn[];
+  let message: string;
+  let threadId: string | undefined;
   try {
     const body = await req.json();
-    messages = body.messages;
-    if (!Array.isArray(messages) || messages.length === 0) throw new Error("empty");
+    message = body.message;
+    threadId = body.threadId ?? undefined;
+    if (typeof message !== "string" || !message.trim()) throw new Error("empty");
   } catch {
-    return NextResponse.json({ error: "messages array required" }, { status: 400 });
+    return NextResponse.json({ error: "message required" }, { status: 400 });
   }
 
   try {
     const res = await fetch(`${AGENT_API_URL}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: buildQuery(messages) }),
+      body: JSON.stringify({ query: message, thread_id: threadId ?? null }),
       signal: AbortSignal.timeout(120_000),
     });
     if (!res.ok) {
@@ -47,8 +38,12 @@ export async function POST(req: NextRequest) {
         { status: 502 }
       );
     }
-    const data: { answer: string; sources?: string[]; tool_calls?: ToolCall[] } =
-      await res.json();
+    const data: {
+      answer: string;
+      sources?: string[];
+      thread_id?: string;
+      tool_calls?: ToolCall[];
+    } = await res.json();
 
     const products = matchProducts(data.answer, data.tool_calls ?? []).map((p) => ({
       ...toSummary(p),
@@ -58,6 +53,7 @@ export async function POST(req: NextRequest) {
     const payload: ChatResponse = {
       answer: data.answer,
       sources: data.sources ?? [],
+      threadId: data.thread_id ?? threadId ?? "",
       products,
     };
     return NextResponse.json(payload);
