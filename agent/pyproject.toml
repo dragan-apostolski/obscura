@@ -22,6 +22,8 @@ dependencies = [
     "pymupdf>=1.28.0",
     "pyspellchecker>=0.9.0",
     "langfuse>=4.14.2", # tracing
+    "psycopg-pool>=3.3.1",
+    "langgraph-checkpoint-postgres>=3.1.2",
 ]
 
 [dependency-groups]
@@ -29,3 +31,6 @@ dev = ["ruff>=0.7", "pytest>=8.3"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

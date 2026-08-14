@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      # Ruff needs no project dependencies, and a full sync would pull torch and
+      # sentence-transformers — gigabytes, minutes — just to lint.
+      - run: uvx ruff check app evals tests
+
+  # Deliberately lint-only for now. The eval suite needs a database, a model API and
+  # judge tokens, so it can't gate a commit; the hermetic tests that could are still
+  # unwritten (see tests/README.md). Add a `test` job here when they exist.

@@ -92,18 +92,6 @@ def norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def run_agent(agent: str, question: str) -> dict:
-    if agent == "manual_rag":
-        from app.manual_rag_agent import ask
-        out = ask(question)
-        out.setdefault("tool_calls", [])
-    else:
-        from app.agent import ask_traced
-        out = ask_traced(question)
-    out.setdefault("retrieval_contexts", out.get("contexts", []))
-    return out
-
-
 # ---------- assert-based scoring ----------
 
 def check_expect(expect: dict, run: dict) -> list[dict]:
@@ -359,6 +347,11 @@ async def main():
 
     # 1. run agents. Store rows go through the API concurrently (abatch); the model API
     #    is the bottleneck, so this is ~Nx faster. Any non-store rows run sequentially.
+    # Check before spending: an unknown agent found after ask_batch would throw away a
+    # full run's worth of model and judge calls.
+    if unknown := sorted({g["agent"] for g in golden} - {"store"}):
+        raise ValueError(f"unknown agent(s) in golden set: {', '.join(unknown)} — only 'store' is served")
+
     store_out = {}
     store_rows = [g for g in golden if g["agent"] == "store"]
     if store_rows:
@@ -371,16 +364,7 @@ async def main():
 
     runs = []
     for g in golden:
-        if g["agent"] == "store":
-            out = store_out[g["id"]]
-        else:
-            print(f"[run] {g['id']} ({g['agent']}): {g['question'][:50]}...", flush=True)
-            try:
-                out = run_agent(g["agent"], g["question"])
-            except Exception as e:
-                print(f"  ERROR: {e}")
-                out = {"answer": f"(agent error: {e})", "sources": [], "contexts": [],
-                       "retrieval_contexts": [], "tool_calls": []}
+        out = store_out[g["id"]]
         runs.append({
             "row_id": g["id"], "agent": g["agent"], "category": g["category"],
             "scoring": g["scoring"], "question": g["question"],

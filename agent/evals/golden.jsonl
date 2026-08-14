@@ -377,7 +377,7 @@
       "no manual access"
     ]
   },
-  "notes": "F3 DECIDED (2026-07-10): manuals exist independently of the catalog — agent should call search_manual(x100v) and answer grounded (answer quality is covered by g09 on manual_rag; this row tests the routing). EXPECTED TO FAIL at baseline: an earlier store-agent run showed the agent refuses via the brand line. The fix is a prompt/docstring change (tell it manual coverage ≠ catalog) — an eval-driven-iteration row."
+  "notes": "F3 DECIDED (2026-07-10): manuals exist independently of the catalog — agent should call search_manual(x100v) and answer grounded (answer quality is covered by g09; this row tests the routing). EXPECTED TO FAIL at baseline: an earlier store-agent run showed the agent refuses via the brand line. The fix is a prompt/docstring change (tell it manual coverage ≠ catalog) — an eval-driven-iteration row."
 }
 {
   "id": "g27",

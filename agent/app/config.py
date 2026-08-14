@@ -22,6 +22,24 @@ class Settings(BaseSettings):
     chunk_tokens: int = 400
     chunk_overlap: int = 50
 
+    # Connection pools. Two exist: one for tool/retrieval queries, one the checkpointer
+    # owns. A process holds up to (db + checkpoint) max_size connections, so size them
+    # together — Supabase's session-mode pooler pins a real backend per connection, and
+    # `uvicorn --workers N` multiplies both.
+    db_pool_min_size: int = 1
+    db_pool_max_size: int = 8
+    checkpoint_pool_max_size: int = 4
+
+    # Tool results are the bulk of an agent's context — one manual search is ~2k tokens,
+    # and without this they ride along on every later turn of a conversation. Above this
+    # many tokens, older tool outputs are dropped from what gets resent.
+    context_edit_trigger_tokens: int = 24000
+    context_edit_keep_tool_results: int = 3
+
+    # Stamped onto every trace so a metric change can be tied to the prompt that produced
+    # it. Bump whenever SYSTEM_PROMPT or a tool docstring changes.
+    prompt_version: str = "2026-08-13"
+
     # Langfuse — optional for now
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

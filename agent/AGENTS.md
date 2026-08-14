@@ -47,10 +47,19 @@ data/  →  ingest  →  chunks (pgvector)
 ```
 
 Endpoints: `GET /health`, `POST /search` (retriever only, no agent), `POST /ask` (the agent),
-`POST /store/ask` (alias of `/ask`, kept for the storefront client).
+`POST /ask/stream` (the same, as server-sent events), `POST /store/ask` (alias of `/ask`,
+kept for the storefront client).
 
-`app/manual_rag_agent.py` is an earlier hand-wired StateGraph (retrieve → grade → rewrite →
-answer). It is **deprecated**, has no endpoint, and is kept only for comparison.
+**Conversation state.** History lives in Postgres via a LangGraph checkpointer, keyed by
+`thread_id` — clients send one message, not a replayed transcript. Ids are server-issued
+UUID4s and a client may only echo one back; a thread id is a bearer token for a conversation,
+so client-invented ids are rejected. Omitting `thread_id` starts a fresh thread and returns
+its id. Eval rows each get their own thread so one row cannot contaminate the next.
+
+Persisted history is still resent to the model on every turn, tool results included, so
+`ContextEditingMiddleware` drops stale tool outputs past `context_edit_trigger_tokens`.
+Without it a long conversation grows until it hits the context limit. Checkpointing is not
+a token optimisation — it is a correctness and ownership one.
 
 The product catalog lives in the `products` table plus `catalog/products.json`, seeded by
 `sql/003_product_catalog.sql`. Manual slugs in `MANUAL_META` (`app/ingest.py`) must match
@@ -69,9 +78,9 @@ app/
   retrieval.py         vector search + hybrid search (RRF, metadata-filtered)
   rerank.py            cross-encoder rerank of the candidate pool
   tools.py             agent tool definitions — docstrings carry the routing rules
-  agent.py             the ReAct agent; ask() is the API contract, ask_traced() adds eval data
-  manual_rag_agent.py  deprecated StateGraph, no endpoint
-  main.py              FastAPI app + endpoints
+  agent.py             the ReAct agent; ask() / astream() serve, ask_traced() adds eval data
+  schemas.py           request + response models — the API contract
+  main.py              FastAPI app, lifespan, middleware, endpoints
 sql/                   schema migrations, run in order
 catalog/               product seed data
 evals/                 golden set, harnesses, scorecard, run history
@@ -102,8 +111,13 @@ uv run ruff check app evals
 ## Conventions
 
 ### Code
-- Match what's there: plain functions, minimal abstraction, module-level clients where the
-  surrounding module already uses them.
+- Match what's there: plain functions, minimal abstraction.
+- **Nothing expensive at import time.** Models and pools are built on first use and warmed
+  in the lifespan — both models, the query pool and the agent. A module-level
+  `SentenceTransformer(...)` is how you make the app un-runnable with more than one worker.
+  Lazy globals reached from tools need a lock: tools execute in the thread pool, so first
+  calls race across threads, not just tasks.
+- The agent path is async end to end. The checkpointer is async-only; don't add a sync twin.
 - All configuration through `app.config.settings`. Never hardcode a key, model name, or dim.
 - **Tool docstrings in `app/tools.py` are routing logic.** The model sees nothing else about
   a tool. Treat edits there as prompt engineering and re-run evals — a topic list read as an
@@ -152,4 +166,12 @@ uv run ruff check app evals
   catalog `specs` field.
 - The catalog contradicts itself on Nikon Z6 II video: description says 4K 60p, specs say
   4K 30p.
-- No test suite yet — `pytest` collects nothing.
+- No test suite yet — see `tests/README.md` for what it should cover.
+- `/ask/stream` has no client: the storefront still uses the blocking `/ask`. It also
+  streams every AI message, so it shows pre-tool-call preamble that `/ask` omits — the two
+  endpoints can return different text for the same question.
+- Checkpoints are never pruned. Every one-shot `/ask` and every eval row writes a thread
+  that stays forever; `sql/004_checkpoint_retention.sql` has the cleanup.
+- The API never returns tool calls, so the storefront's slug-based product matching
+  (`matchProducts`, second argument) has never had data to work with — it matches on
+  answer text alone.

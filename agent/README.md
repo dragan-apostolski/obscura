@@ -28,8 +28,15 @@ data/  →  ingest  →  chunks (pgvector)
                    tools: search_products, get_product_info,
                           search_manual, explain_technique
                          ↓
-                      POST /ask
+                POST /ask · POST /ask/stream
 ```
+
+**Conversation state.** Turns are checkpointed to Postgres and addressed by `thread_id`,
+so a follow-up resolves against what was actually said rather than against a transcript the
+client reassembles and resends. That moves the source of truth server-side; it does not make
+history free — persisted turns are still replayed to the model, and tool results dominate
+them. A manual search is roughly 2k tokens, so context editing drops stale tool outputs once
+a conversation crosses a threshold, keeping the recent ones and the dialogue itself.
 
 **Retrieval.** Two arms run in one SQL statement — pgvector cosine similarity and Postgres
 full-text search — merged by Reciprocal Rank Fusion. Metadata filters (`product`, `doc_type`)
@@ -101,8 +108,17 @@ Embeddings (`bge-small-en-v1.5`) and reranking (`bge-reranker-large`) run locall
 embedding API key, no per-query retrieval cost. Only generation and the eval judge call out.
 
 ```bash
+# one-shot; the response carries a thread_id
 curl -X POST localhost:8000/ask -H 'content-type: application/json' \
   -d '{"query": "Does the Nikon Z8 have IBIS?"}'
+
+# continue that conversation
+curl -X POST localhost:8000/ask -H 'content-type: application/json' \
+  -d '{"query": "And is it in stock?", "thread_id": "<id from above>"}'
+
+# same thing as server-sent events: {"type":"tool"|"token"|"done", ...}
+curl -N -X POST localhost:8000/ask/stream -H 'content-type: application/json' \
+  -d '{"query": "Which Fujifilm cameras do you have?"}'
 ```
 
 ### Running the evals
@@ -130,7 +146,8 @@ app/
   rerank.py            cross-encoder rerank
   tools.py             agent tools — docstrings carry the routing rules
   agent.py             the ReAct agent
-  main.py              FastAPI endpoints
+  schemas.py           request + response models
+  main.py              FastAPI app, lifespan, endpoints
 sql/                   schema migrations
 catalog/               product seed data
 evals/                 golden set, harnesses, scorecard, run history
@@ -152,3 +169,5 @@ Claude · Ragas · Langfuse
   rule, not a better description.
 - The catalog is synthetic and contains one deliberate inconsistency (Nikon Z6 II video
   specs), kept as an eval fixture.
+- No unit tests yet. Behaviour is covered by the eval suite, which needs a database and a
+  model API; `tests/README.md` sets out the hermetic layer that should sit under it.
