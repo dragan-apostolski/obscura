@@ -1,4 +1,5 @@
-// One-shot: download each product's og:image from its source_url into public/products/{slug}.jpg
+// One-shot: download each product's og:image from its source_url into .tmp/product-images/{slug}.jpg
+// then upload to R2: npx wrangler r2 object put photo-store/products/<slug>.jpg --file .tmp/product-images/<slug>.jpg --content-type image/jpeg --remote
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const catalog = JSON.parse(
   readFileSync(resolve(here, "../../agent/catalog/products.json"), "utf8")
 );
-const outDir = resolve(here, "../public/products");
+const outDir = resolve(here, "../.tmp/product-images");
 mkdirSync(outDir, { recursive: true });
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126 Safari/537.36";
@@ -43,4 +44,9 @@ for (const p of catalog) {
     console.log(`FAIL ${p.slug}: ${e.message}`);
   }
 }
-console.log(failed.length ? `\nFailed: ${failed.join(", ")}` : "\nAll images downloaded.");
+if (failed.length) {
+  console.log(`\nFailed: ${failed.join(", ")}`);
+} else {
+  console.log("\nAll images downloaded to .tmp/product-images/");
+  console.log("Upload with: npx wrangler r2 object put photo-store/products/<slug>.jpg --file .tmp/product-images/<slug>.jpg --content-type image/jpeg --remote");
+}
