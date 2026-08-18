@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+:root {
+  --background: #faf9f7;
+  --foreground: #1c1917;
+  --muted: #78716c;
+  --faint: #a8a29e;
+  --card: #f3f1ee;
+  --line: #e7e4e0;
+  --accent: #a4512c;
+  --accent-ink: #7c3a1d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--accent);
+  color: #faf9f7;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+.animate-breathe {
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--card) 40%,
+    #e9e6e1 50%,
+    var(--card) 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.chat-prose p {
+  margin-block: 0.4rem;
+}
+.chat-prose p:first-child {
+  margin-top: 0;
+}
+.chat-prose p:last-child {
+  margin-bottom: 0;
+}
+.chat-prose ul,
+.chat-prose ol {
+  margin-block: 0.4rem;
+  padding-left: 1.1rem;
+}
+.chat-prose ul {
+  list-style: disc;
+}
+.chat-prose ol {
+  list-style: decimal;
+}
+.chat-prose li {
+  margin-block: 0.15rem;
+}
+.chat-prose strong {
+  font-weight: 600;
+}
+.chat-prose table {
+  margin-block: 0.5rem;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.chat-prose th,
+.chat-prose td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.3rem 0.5rem 0.3rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+.chat-prose th {
+  font-weight: 600;
+}
