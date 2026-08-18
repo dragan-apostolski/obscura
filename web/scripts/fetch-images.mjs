@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const catalog = JSON.parse(
-  readFileSync(resolve(here, "../../photo-rag-assistant/catalog/products.json"), "utf8")
+  readFileSync(resolve(here, "../../agent/catalog/products.json"), "utf8")
 );
 const outDir = resolve(here, "../public/products");
 mkdirSync(outDir, { recursive: true });
