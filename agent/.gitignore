@@ -15,3 +15,6 @@ evals/results/*.json
 # local editor / MCP config (contains a project-specific Supabase ref)
 .cursor/
 .mcp.json
+
+# product catalog (seed data, kept out of the public repo)
+catalog/products.json

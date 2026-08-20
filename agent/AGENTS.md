@@ -62,8 +62,11 @@ Without it a long conversation grows until it hits the context limit. Checkpoint
 a token optimisation — it is a correctness and ownership one.
 
 The product catalog lives in the `products` table plus `catalog/products.json`, seeded by
-`sql/003_product_catalog.sql`. Manual slugs in `MANUAL_META` (`app/ingest.py`) must match
-`products.slug` — a mismatch silently breaks `search_manual`.
+`sql/003_product_catalog.sql`. That file is gitignored; `catalog/products.example.json` is a
+small committed stand-in — copy it to `products.json` to get a runnable catalog.
+
+Manual slugs in `MANUAL_META` (`app/ingest.py`) must match `products.slug` — a mismatch
+silently breaks `search_manual`.
 
 ## Layout
 

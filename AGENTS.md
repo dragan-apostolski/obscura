@@ -19,6 +19,8 @@ the other:
   sends one message and echoes the id back, never a transcript.
 - **The product catalog.** `agent/catalog/products.json` is the source; `web/src/data/products.json`
   is a copy. If slugs drift, product preview cards silently stop matching. Update both.
+  Neither is committed — each has a `products.example.json` beside it. Copy those to
+  `products.json` on a fresh clone, or the web build won't compile.
 
 Commands are per-project; run them from inside `agent/` or `web/`, not from the root.
 

@@ -28,6 +28,9 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
+      # The real catalog is not in the repo; the example keeps the build honest.
+      - run: cp src/data/products.example.json src/data/products.json
+        working-directory: web
       - run: npm ci
         working-directory: web
       - run: npx tsc --noEmit

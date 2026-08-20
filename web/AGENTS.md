@@ -43,7 +43,7 @@ src/components/chat/chat-bus.ts  window-event bus — any component can open the
                                  pre-filled prompt, no global state
 src/lib/match-products.ts        answer text + tool calls → product cards
 src/data/catalog.ts              typed accessors over products.json; image URL base
-src/data/products.json           catalog copy, kept in sync with the agent's seed data
+src/data/products.json           catalog copy (gitignored; see products.example.json)
 ```
 
 ## Run
